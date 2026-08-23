@@ -2,8 +2,6 @@
 
 > Role-based online exam management system for students, teachers, and administrators
 
-![GitHub stars](https://img.shields.io/github/stars/Sukalpa-Chakraborty/Online-Exam-Management-System?style=for-the-badge&logo=github) ![GitHub forks](https://img.shields.io/github/forks/Sukalpa-Chakraborty/Online-Exam-Management-System?style=for-the-badge&logo=github) ![GitHub issues](https://img.shields.io/github/issues/Sukalpa-Chakraborty/Online-Exam-Management-System?style=for-the-badge&logo=github) ![Last commit](https://img.shields.io/github/last-commit/Sukalpa-Chakraborty/Online-Exam-Management-System?style=for-the-badge&logo=github)
-
 ## 📑 Table of Contents
 
 - [Description](#description)
@@ -217,9 +215,7 @@ Please follow the existing code style and include tests for new behavior where a
 
 ---
 
-<div align="center">
 
-[![Made with ReadmeBuddy](https://img.shields.io/badge/Made%20with-ReadmeBuddy-8B5CFF?style=for-the-badge&logo=markdown&logoColor=white)](https://readmebuddy.com)
 
 <sub>Generate beautiful READMEs in seconds → <a href="https://readmebuddy.com">readmebuddy.com</a></sub>
 
