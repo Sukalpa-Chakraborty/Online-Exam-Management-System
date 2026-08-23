@@ -3,6 +3,7 @@ import {
   BarChart3,
   Bell,
   BookOpen,
+  CheckCheck,
   ChevronDown,
   ClipboardList,
   FileText,
@@ -26,7 +27,15 @@ import {
   type ReactNode,
 } from "react";
 
-import { collection, onSnapshot, query, updateDoc, where, doc } from "firebase/firestore";
+import {
+  collection,
+  doc,
+  onSnapshot,
+  query,
+  updateDoc,
+  where,
+  writeBatch,
+} from "firebase/firestore";
 import { useLocation, useNavigate } from "react-router-dom";
 
 import { useAuth } from "../../context/AuthContext";
@@ -216,6 +225,22 @@ function DashboardLayout({
       await updateDoc(doc(db, "notifications", item.id), { read: true });
     }
     if (item.link) navigate(item.link);
+  };
+
+  const markAllAsRead = async () => {
+    if (!user) return;
+    const unreadNotifications = notifications.filter((item) => !item.read);
+    if (unreadNotifications.length === 0) return;
+
+    try {
+      const batch = writeBatch(db);
+      unreadNotifications.forEach((item) => {
+        batch.update(doc(db, "notifications", item.id), { read: true });
+      });
+      await batch.commit();
+    } catch (error) {
+      console.error("Failed to mark all notifications as read:", error);
+    }
   };
 
   const items = menuItems[role];
@@ -467,6 +492,18 @@ function DashboardLayout({
                         </span>
                       )}
                     </div>
+
+                    {unreadCount > 0 && (
+                      <button
+                        type="button"
+                        onClick={markAllAsRead}
+                        className="inline-flex items-center gap-1 text-[11px] font-bold text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 transition hover:underline cursor-pointer"
+                        title="Mark all notifications as read"
+                      >
+                        <CheckCheck size={14} />
+                        <span>Mark all as read</span>
+                      </button>
+                    )}
                   </div>
 
                   <div className="max-h-96 divide-y divide-slate-100 dark:divide-slate-800 overflow-y-auto">
