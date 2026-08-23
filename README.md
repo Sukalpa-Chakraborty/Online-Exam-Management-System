@@ -83,50 +83,7 @@ Role	Description
 👤 Profile Management
 🌙 Theme Management
 📁 Project Structure
-src/
-├── components/
-│   ├── auth/
-│   │   └── AuthLayout.tsx
-│   ├── common/
-│   │   └── DateTimePicker.tsx
-│   └── layout/
-│       └── DashboardLayout.tsx
-│
-├── context/
-│   ├── AuthContext.tsx
-│   └── ThemeContext.tsx
-│
-├── firebase/
-│   └── firebase.ts
-│
-├── pages/
-│   ├── admin/
-│   ├── auth/
-│   ├── profile/
-│   ├── student/
-│   └── teacher/
-│
-├── routes/
-│   └── AppRoutes.tsx
-│
-├── services/
-│   ├── adminService.ts
-│   ├── authService.ts
-│   ├── classService.ts
-│   ├── evaluationService.ts
-│   ├── examService.ts
-│   ├── notificationService.ts
-│   └── resultService.ts
-│
-├── types/
-│   ├── exam.ts
-│   └── user.ts
-│
-├── App.tsx
-├── main.tsx
-└── index.css
-🚀 Getting Started
-📋 Prerequisites
+
 
 Before running the project, make sure you have:
 
