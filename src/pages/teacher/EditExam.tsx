@@ -280,51 +280,92 @@ function EditExam() {
               </div>
 
               {/* Subject */}
-              <div>
-                <label className="mb-1.5 block text-xs font-semibold text-slate-700">
-                  Subject
+              <div className="md:col-span-2">
+                <label className="mb-1.5 block text-xs font-semibold text-slate-700 dark:text-slate-300">
+                  Subject / Course
                 </label>
                 <input
                   type="text"
                   value={subject}
                   onChange={(event) => setSubject(event.target.value)}
                   placeholder="Enter subject"
-                  className="w-full rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm text-slate-800 outline-none transition focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10"
+                  className="w-full rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 px-4 py-2.5 text-xs text-slate-800 dark:text-white outline-none transition focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10"
                 />
               </div>
 
-              {/* Duration */}
-              <div>
-                <label className="mb-1.5 block text-xs font-semibold text-slate-700">
-                  Duration (Minutes)
-                </label>
-                <div className="relative">
-                  <Clock
-                    size={17}
-                    className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400"
-                  />
-                  <input
-                    type="number"
-                    min="1"
-                    value={duration}
-                    onChange={(event) =>
-                      setDuration(Number(event.target.value))
-                    }
-                    className="w-full rounded-xl border border-slate-200 bg-white py-2.5 pl-10 pr-4 text-sm text-slate-800 outline-none transition focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10"
-                  />
+              {/* Schedule & Duration Group */}
+              <div className="md:col-span-2 rounded-2xl border border-slate-200/80 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/30 p-4 sm:p-5">
+                <div className="mb-3.5">
+                  <h3 className="text-xs font-bold text-slate-800 dark:text-slate-200 uppercase tracking-wider">
+                    Schedule & Duration
+                  </h3>
+                  <p className="mt-0.5 text-[11px] text-slate-500 dark:text-slate-400">
+                    Modify the availability window and duration limit for this examination.
+                  </p>
                 </div>
+
+                <div className="grid gap-4 sm:grid-cols-3">
+                  {/* Start Date & Time */}
+                  <DateTimePicker
+                    label="Start Date & Time"
+                    value={startTime}
+                    onChange={(val) => setStartTime(val)}
+                    placeholder="Choose start date & time"
+                  />
+
+                  {/* End Date & Time */}
+                  <DateTimePicker
+                    label="End Date & Time"
+                    value={endTime}
+                    onChange={(val) => setEndTime(val)}
+                    placeholder="Choose end date & time"
+                  />
+
+                  {/* Time Limit */}
+                  <div>
+                    <label className="mb-1.5 block text-xs font-semibold text-slate-700 dark:text-slate-300">
+                      Time Limit <span className="text-red-500">*</span>
+                    </label>
+                    <div className="relative flex items-center">
+                      <div className="pointer-events-none absolute left-3.5 flex items-center text-blue-600 dark:text-blue-400">
+                        <Clock size={16} />
+                      </div>
+                      <input
+                        type="number"
+                        min="1"
+                        max="1440"
+                        value={duration || ""}
+                        onChange={(event) =>
+                          setDuration(Math.max(1, Number(event.target.value)))
+                        }
+                        placeholder="60"
+                        className="w-full rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 py-2.5 pl-10 pr-16 text-xs font-semibold text-slate-800 dark:text-white outline-none transition focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10"
+                      />
+                      <span className="pointer-events-none absolute right-3.5 text-xs font-bold text-slate-400">
+                        Minutes
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Inline Schedule Validation Alert */}
+                {startTime && endTime && new Date(endTime) <= new Date(startTime) && (
+                  <p className="mt-3 flex items-center gap-1.5 rounded-lg bg-red-50 dark:bg-red-950/40 p-2.5 text-xs font-semibold text-red-600 dark:text-red-400">
+                    <span>⚠️ End Date & Time must be later than Start Date & Time.</span>
+                  </p>
+                )}
               </div>
 
               {/* Class Assignment */}
               <div className="md:col-span-2">
-                <label className="mb-1.5 block text-xs font-semibold text-slate-700">
+                <label className="mb-1.5 block text-xs font-semibold text-slate-700 dark:text-slate-300">
                   Assign to Class Batch
                 </label>
                 <select
                   value={classId}
                   disabled={hasAttempts}
                   onChange={(event) => setClassId(event.target.value)}
-                  className="w-full rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-xs text-slate-800 outline-none transition focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 disabled:bg-slate-100 disabled:cursor-not-allowed"
+                  className="w-full rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 px-4 py-2.5 text-xs text-slate-800 dark:text-white outline-none transition focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 disabled:bg-slate-100 dark:disabled:bg-slate-800 disabled:cursor-not-allowed"
                 >
                   <option value="">No class assignment (Public to all students)</option>
                   {classes.map((item) => (
@@ -337,7 +378,7 @@ function EditExam() {
 
               {/* Description */}
               <div className="md:col-span-2">
-                <label className="mb-1.5 block text-xs font-semibold text-slate-700">
+                <label className="mb-1.5 block text-xs font-semibold text-slate-700 dark:text-slate-300">
                   Description / Guidelines
                 </label>
                 <textarea
@@ -345,25 +386,9 @@ function EditExam() {
                   value={description}
                   onChange={(event) => setDescription(event.target.value)}
                   placeholder="Enter guidelines or syllabus..."
-                  className="w-full resize-none rounded-xl border border-slate-200 bg-white px-4 py-3 text-xs leading-relaxed text-slate-800 outline-none transition focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10"
+                  className="w-full resize-none rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 px-4 py-3 text-xs leading-relaxed text-slate-800 dark:text-white outline-none transition focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10"
                 />
               </div>
-
-              {/* Start Time */}
-              <DateTimePicker
-                label="Start Date & Time"
-                value={startTime}
-                onChange={(val) => setStartTime(val)}
-                placeholder="Choose start date & time"
-              />
-
-              {/* End Time */}
-              <DateTimePicker
-                label="End Date & Time"
-                value={endTime}
-                onChange={(val) => setEndTime(val)}
-                placeholder="Choose end date & time"
-              />
             </div>
 
             <div className="mt-8 flex flex-col-reverse justify-end gap-3 border-t border-slate-100 pt-6 sm:flex-row sm:items-center">

@@ -40,6 +40,7 @@ import EvaluateShortAnswers from "../pages/teacher/EvaluateShortAnswers";
 import Classes from "../pages/teacher/Classes";
 import ClassDetails from "../pages/teacher/ClassDetails";
 import Analytics from "../pages/teacher/Analytics";
+import TeacherMonitoring from "../pages/teacher/TeacherMonitoring";
 
 /* ================= ADMIN ================= */
 
@@ -60,12 +61,7 @@ import EditProfile from "../pages/profile/EditProfile";
 
 interface ProtectedRouteProps {
   children: ReactNode;
-
-  allowedRoles?: (
-    | "student"
-    | "teacher"
-    | "admin"
-  )[];
+  allowedRoles?: ("student" | "teacher" | "admin")[];
 }
 
 function ProtectedRoute({
@@ -98,10 +94,7 @@ function ProtectedRoute({
     );
   }
 
-  if (
-    allowedRoles &&
-    !userProfile
-  ) {
+  if (allowedRoles && !userProfile) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-slate-50">
         <div className="flex flex-col items-center gap-3">
@@ -127,9 +120,7 @@ function ProtectedRoute({
   if (
     allowedRoles &&
     userProfile &&
-    !allowedRoles.includes(
-      userProfile.role
-    )
+    !allowedRoles.includes(userProfile.role)
   ) {
     return (
       <Navigate
@@ -174,9 +165,7 @@ function RoleDashboard() {
     return <Navigate to="/login" replace />;
   }
 
-  if (
-    userProfile.role === "teacher"
-  ) {
+  if (userProfile.role === "teacher") {
     return (
       <Navigate
         to="/teacher/dashboard"
@@ -185,9 +174,7 @@ function RoleDashboard() {
     );
   }
 
-  if (
-    userProfile.role === "admin"
-  ) {
+  if (userProfile.role === "admin") {
     return (
       <Navigate
         to="/admin/dashboard"
@@ -209,7 +196,6 @@ function RoleDashboard() {
 function AppRoutes() {
   return (
     <Routes>
-
       {/* DEFAULT */}
 
       <Route
@@ -251,11 +237,7 @@ function AppRoutes() {
       <Route
         path="/student/dashboard"
         element={
-          <ProtectedRoute
-            allowedRoles={[
-              "student",
-            ]}
-          >
+          <ProtectedRoute allowedRoles={["student"]}>
             <StudentDashboard />
           </ProtectedRoute>
         }
@@ -264,11 +246,7 @@ function AppRoutes() {
       <Route
         path="/student/exams"
         element={
-          <ProtectedRoute
-            allowedRoles={[
-              "student",
-            ]}
-          >
+          <ProtectedRoute allowedRoles={["student"]}>
             <AvailableExams />
           </ProtectedRoute>
         }
@@ -277,11 +255,7 @@ function AppRoutes() {
       <Route
         path="/student/exams/:examId"
         element={
-          <ProtectedRoute
-            allowedRoles={[
-              "student",
-            ]}
-          >
+          <ProtectedRoute allowedRoles={["student"]}>
             <ExamDetails />
           </ProtectedRoute>
         }
@@ -290,11 +264,7 @@ function AppRoutes() {
       <Route
         path="/student/exams/:examId/attempt"
         element={
-          <ProtectedRoute
-            allowedRoles={[
-              "student",
-            ]}
-          >
+          <ProtectedRoute allowedRoles={["student"]}>
             <AttemptExam />
           </ProtectedRoute>
         }
@@ -303,11 +273,7 @@ function AppRoutes() {
       <Route
         path="/student/exams/:examId/result"
         element={
-          <ProtectedRoute
-            allowedRoles={[
-              "student",
-            ]}
-          >
+          <ProtectedRoute allowedRoles={["student"]}>
             <ResultPage />
           </ProtectedRoute>
         }
@@ -316,11 +282,7 @@ function AppRoutes() {
       <Route
         path="/student/results"
         element={
-          <ProtectedRoute
-            allowedRoles={[
-              "student",
-            ]}
-          >
+          <ProtectedRoute allowedRoles={["student"]}>
             <MyResults />
           </ProtectedRoute>
         }
@@ -329,12 +291,17 @@ function AppRoutes() {
       <Route
         path="/student/history"
         element={
-          <ProtectedRoute
-            allowedRoles={[
-              "student",
-            ]}
-          >
+          <ProtectedRoute allowedRoles={["student"]}>
             <ExamHistory />
+          </ProtectedRoute>
+        }
+      />
+
+      <Route
+        path="/student/classes"
+        element={
+          <ProtectedRoute allowedRoles={["student"]}>
+            <MyClasses />
           </ProtectedRoute>
         }
       />
@@ -344,11 +311,7 @@ function AppRoutes() {
       <Route
         path="/teacher/dashboard"
         element={
-          <ProtectedRoute
-            allowedRoles={[
-              "teacher",
-            ]}
-          >
+          <ProtectedRoute allowedRoles={["teacher"]}>
             <TeacherDashboard />
           </ProtectedRoute>
         }
@@ -359,11 +322,7 @@ function AppRoutes() {
       <Route
         path="/teacher/create-exam"
         element={
-          <ProtectedRoute
-            allowedRoles={[
-              "teacher",
-            ]}
-          >
+          <ProtectedRoute allowedRoles={["teacher"]}>
             <CreateExam />
           </ProtectedRoute>
         }
@@ -374,11 +333,7 @@ function AppRoutes() {
       <Route
         path="/teacher/exams"
         element={
-          <ProtectedRoute
-            allowedRoles={[
-              "teacher",
-            ]}
-          >
+          <ProtectedRoute allowedRoles={["teacher"]}>
             <MyExams />
           </ProtectedRoute>
         }
@@ -389,11 +344,7 @@ function AppRoutes() {
       <Route
         path="/teacher/exams/:examId/edit"
         element={
-          <ProtectedRoute
-            allowedRoles={[
-              "teacher",
-            ]}
-          >
+          <ProtectedRoute allowedRoles={["teacher"]}>
             <EditExam />
           </ProtectedRoute>
         }
@@ -404,41 +355,29 @@ function AppRoutes() {
       <Route
         path="/teacher/exams/:examId/questions"
         element={
-          <ProtectedRoute
-            allowedRoles={[
-              "teacher",
-            ]}
-          >
+          <ProtectedRoute allowedRoles={["teacher"]}>
             <AddQuestions />
           </ProtectedRoute>
         }
       />
 
-      {/* ADD QUESTION TO EXAM - NEW ROUTE */}
+      {/* ADD QUESTION TO EXAM */}
 
       <Route
         path="/teacher/exams/:examId/questions/add"
         element={
-          <ProtectedRoute
-            allowedRoles={[
-              "teacher",
-            ]}
-          >
+          <ProtectedRoute allowedRoles={["teacher"]}>
             <AddQuestion />
           </ProtectedRoute>
         }
       />
 
-      {/* ADD QUESTION TO EXAM - OLD COMPATIBILITY ROUTE */}
+      {/* ADD QUESTION TO EXAM - COMPATIBILITY ROUTE */}
 
       <Route
         path="/teacher/exams/:examId/add-question"
         element={
-          <ProtectedRoute
-            allowedRoles={[
-              "teacher",
-            ]}
-          >
+          <ProtectedRoute allowedRoles={["teacher"]}>
             <AddQuestion />
           </ProtectedRoute>
         }
@@ -449,11 +388,7 @@ function AppRoutes() {
       <Route
         path="/exams/:examId/questions"
         element={
-          <ProtectedRoute
-            allowedRoles={[
-              "teacher",
-            ]}
-          >
+          <ProtectedRoute allowedRoles={["teacher"]}>
             <AddQuestions />
           </ProtectedRoute>
         }
@@ -464,12 +399,19 @@ function AppRoutes() {
       <Route
         path="/teacher/questions"
         element={
-          <ProtectedRoute
-            allowedRoles={[
-              "teacher",
-            ]}
-          >
+          <ProtectedRoute allowedRoles={["teacher"]}>
             <QuestionBank />
+          </ProtectedRoute>
+        }
+      />
+
+      {/* ADD QUESTION TO QUESTION BANK */}
+
+      <Route
+        path="/teacher/questions/add"
+        element={
+          <ProtectedRoute allowedRoles={["teacher"]}>
+            <AddQuestion />
           </ProtectedRoute>
         }
       />
@@ -479,23 +421,33 @@ function AppRoutes() {
       <Route
         path="/teacher/questions/:questionId/edit"
         element={
-          <ProtectedRoute
-            allowedRoles={[
-              "teacher",
-            ]}
-          >
+          <ProtectedRoute allowedRoles={["teacher"]}>
             <EditQuestion />
           </ProtectedRoute>
         }
       />
-      <Route path="/admin/users" element={<ProtectedRoute allowedRoles={["admin"]}><AdminUsers /></ProtectedRoute>} />
-      <Route path="/admin/users/:userId" element={<ProtectedRoute allowedRoles={["admin"]}><AdminUserDetails /></ProtectedRoute>} />
-      <Route path="/admin/classes" element={<ProtectedRoute allowedRoles={["admin"]}><AdminClasses /></ProtectedRoute>} />
-      <Route path="/admin/exams" element={<ProtectedRoute allowedRoles={["admin"]}><AdminExams /></ProtectedRoute>} />
-      <Route path="/admin/monitoring" element={<ProtectedRoute allowedRoles={["admin"]}><AdminMonitoring /></ProtectedRoute>} />
-      <Route path="/admin/analytics" element={<ProtectedRoute allowedRoles={["admin"]}><AdminAnalytics /></ProtectedRoute>} />
-      <Route path="/admin/activity-logs" element={<ProtectedRoute allowedRoles={["admin"]}><AdminActivityLogs /></ProtectedRoute>} />
-      <Route path="/student/classes" element={<ProtectedRoute allowedRoles={["student"]}><MyClasses /></ProtectedRoute>} />
+
+      {/* TEACHER CLASSES */}
+
+      <Route
+        path="/teacher/classes"
+        element={
+          <ProtectedRoute allowedRoles={["teacher"]}>
+            <Classes />
+          </ProtectedRoute>
+        }
+      />
+
+      <Route
+        path="/teacher/classes/:classId"
+        element={
+          <ProtectedRoute allowedRoles={["teacher"]}>
+            <ClassDetails />
+          </ProtectedRoute>
+        }
+      />
+
+      {/* EVALUATE ANSWERS */}
 
       <Route
         path="/teacher/evaluations"
@@ -505,21 +457,99 @@ function AppRoutes() {
           </ProtectedRoute>
         }
       />
-      <Route path="/teacher/classes" element={<ProtectedRoute allowedRoles={["teacher"]}><Classes /></ProtectedRoute>} />
-      <Route path="/teacher/classes/:classId" element={<ProtectedRoute allowedRoles={["teacher"]}><ClassDetails /></ProtectedRoute>} />
-      <Route path="/teacher/analytics" element={<ProtectedRoute allowedRoles={["teacher"]}><Analytics /></ProtectedRoute>} />
+
+      {/* TEACHER MONITORING */}
+
+      <Route
+        path="/teacher/monitoring"
+        element={
+          <ProtectedRoute allowedRoles={["teacher"]}>
+            <TeacherMonitoring />
+          </ProtectedRoute>
+        }
+      />
+
+      {/* TEACHER ANALYTICS */}
+
+      <Route
+        path="/teacher/analytics"
+        element={
+          <ProtectedRoute allowedRoles={["teacher"]}>
+            <Analytics />
+          </ProtectedRoute>
+        }
+      />
 
       {/* ================= ADMIN ================= */}
 
       <Route
         path="/admin/dashboard"
         element={
-          <ProtectedRoute
-            allowedRoles={[
-              "admin",
-            ]}
-          >
+          <ProtectedRoute allowedRoles={["admin"]}>
             <AdminDashboard />
+          </ProtectedRoute>
+        }
+      />
+
+      <Route
+        path="/admin/users"
+        element={
+          <ProtectedRoute allowedRoles={["admin"]}>
+            <AdminUsers />
+          </ProtectedRoute>
+        }
+      />
+
+      <Route
+        path="/admin/users/:userId"
+        element={
+          <ProtectedRoute allowedRoles={["admin"]}>
+            <AdminUserDetails />
+          </ProtectedRoute>
+        }
+      />
+
+      <Route
+        path="/admin/classes"
+        element={
+          <ProtectedRoute allowedRoles={["admin"]}>
+            <AdminClasses />
+          </ProtectedRoute>
+        }
+      />
+
+      <Route
+        path="/admin/exams"
+        element={
+          <ProtectedRoute allowedRoles={["admin"]}>
+            <AdminExams />
+          </ProtectedRoute>
+        }
+      />
+
+      <Route
+        path="/admin/monitoring"
+        element={
+          <ProtectedRoute allowedRoles={["admin"]}>
+            <AdminMonitoring />
+          </ProtectedRoute>
+        }
+      />
+
+      <Route
+        path="/admin/analytics"
+        element={
+          <ProtectedRoute allowedRoles={["admin"]}>
+            <AdminAnalytics />
+          </ProtectedRoute>
+        }
+      />
+
+      <Route
+        path="/admin/activity-logs"
+        element={
+          <ProtectedRoute allowedRoles={["admin"]}>
+            <AdminActivityLogs />
           </ProtectedRoute>
         }
       />
@@ -546,8 +576,7 @@ function AppRoutes() {
           />
         }
       />
-
-    </Routes>
+      </Routes>
   );
 }
 

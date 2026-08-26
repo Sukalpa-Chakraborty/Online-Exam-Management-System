@@ -4,8 +4,8 @@ import {
   CheckCircle2,
   Clock3,
   ShieldCheck,
-  Sparkles,
 } from "lucide-react";
+import { ExamSphereLogo } from "../common/ExamSphereLogo";
 
 interface AuthLayoutProps {
   children: ReactNode;
@@ -31,13 +31,7 @@ function AuthLayout({ children, title, subtitle }: AuthLayoutProps) {
           {/* Logo & Brand Header */}
           <div className="relative z-10">
             <div className="flex items-center gap-3">
-              <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-white p-1 shadow-lg shadow-blue-500/25 ring-1 ring-white/20">
-                <img
-                  src="/logo.png"
-                  alt="ExamSphere Logo"
-                  className="h-full w-full object-contain"
-                />
-              </div>
+              <ExamSphereLogo size={48} />
 
               <div>
                 <div className="flex items-center gap-1.5">
@@ -56,12 +50,7 @@ function AuthLayout({ children, title, subtitle }: AuthLayoutProps) {
 
             {/* Main Headline & Description */}
             <div className="mt-12 xl:mt-16">
-              <div className="inline-flex items-center gap-2 rounded-full border border-blue-500/25 bg-blue-500/10 px-3.5 py-1 text-xs font-semibold tracking-wide text-blue-300 backdrop-blur-md">
-                <Sparkles size={13} className="text-blue-400 animate-pulse" />
-                <span>Next-Gen Academic Testing</span>
-              </div>
-
-              <h2 className="mt-5 text-3xl font-extrabold tracking-tight text-white sm:text-4xl xl:text-[2.65rem] xl:leading-[1.18]">
+              <h2 className="text-3xl font-extrabold tracking-tight text-white sm:text-4xl xl:text-[2.65rem] xl:leading-[1.18]">
                 Modern examinations,{" "}
                 <span className="bg-gradient-to-r from-blue-400 via-indigo-300 to-sky-300 bg-clip-text text-transparent">
                   elevated.
@@ -156,13 +145,7 @@ function AuthLayout({ children, title, subtitle }: AuthLayoutProps) {
             {/* Mobile Header Branding */}
             <div className="mb-6 lg:hidden">
               <div className="flex items-center gap-3">
-                <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-white p-1 shadow-md shadow-blue-500/20 ring-1 ring-slate-200">
-                  <img
-                    src="/logo.png"
-                    alt="ExamSphere Logo"
-                    className="h-full w-full object-contain"
-                  />
-                </div>
+                <ExamSphereLogo size={44} />
                 <div>
                   <span className="text-lg font-bold tracking-tight text-slate-900">
                     ExamSphere

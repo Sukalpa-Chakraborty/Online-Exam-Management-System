@@ -3,6 +3,8 @@ import { useNavigate } from "react-router-dom";
 import {
   AlertTriangle,
   ArrowLeft,
+  Eye,
+  EyeOff,
   Loader2,
   LockKeyhole,
   ShieldCheck,
@@ -28,6 +30,7 @@ function TeacherCodeVerification() {
   } = useAuth();
 
   const [teacherCode, setTeacherCode] = useState("");
+  const [showTeacherCode, setShowTeacherCode] = useState(false);
   const [verifying, setVerifying] = useState(false);
   const [error, setError] = useState("");
 
@@ -143,24 +146,24 @@ function TeacherCodeVerification() {
       subtitle="Enter your verification code to access your teacher portal."
     >
       {error && (
-        <div className="mb-5 flex items-start gap-2.5 rounded-xl border border-red-200 bg-red-50 p-3.5 text-xs font-medium text-red-700">
+        <div className="mb-5 flex items-start gap-2.5 rounded-xl border border-red-200 dark:border-red-900/50 bg-red-50 dark:bg-red-950/50 p-3.5 text-xs font-medium text-red-700 dark:text-red-300">
           <AlertTriangle size={17} className="mt-0.5 shrink-0 text-red-500" />
           <span>{error}</span>
         </div>
       )}
 
-      <div className="mb-6 rounded-2xl border border-blue-100 bg-blue-50/70 p-4">
-        <div className="flex gap-3">
-          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-blue-600 text-white">
-            <ShieldCheck size={20} />
+      <div className="mb-6 rounded-2xl border border-blue-200 dark:border-blue-500/30 bg-blue-50/90 dark:bg-blue-950/50 p-4 shadow-xs">
+        <div className="flex items-start gap-3.5">
+          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-tr from-blue-600 to-indigo-600 text-white shadow-md shadow-blue-500/25">
+            <ShieldCheck size={22} />
           </div>
 
           <div>
-            <h2 className="text-xs font-bold text-slate-900">
+            <h2 className="text-sm font-bold text-slate-900 dark:text-white">
               Welcome, {userProfile.name || "Teacher"}
             </h2>
 
-            <p className="mt-1 text-xs leading-relaxed text-slate-600">
+            <p className="mt-1 text-xs leading-relaxed text-slate-700 dark:text-slate-300 font-medium">
               Please enter the special 4+ character verification code set during registration.
             </p>
           </div>
@@ -168,18 +171,18 @@ function TeacherCodeVerification() {
       </div>
 
       <div>
-        <label className="mb-1.5 block text-xs font-semibold text-slate-700">
+        <label className="mb-1.5 block text-xs font-semibold text-slate-700 dark:text-slate-200">
           Teacher Special Code
         </label>
 
         <div className="relative">
           <LockKeyhole
             size={18}
-            className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400"
+            className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 dark:text-slate-500"
           />
 
           <input
-            type="password"
+            type={showTeacherCode ? "text" : "password"}
             value={teacherCode}
             onChange={(event) => setTeacherCode(event.target.value)}
             onKeyDown={(event) => {
@@ -189,8 +192,18 @@ function TeacherCodeVerification() {
             }}
             placeholder="Enter your verification code"
             autoFocus
-            className="w-full rounded-xl border border-slate-200 bg-white py-2.5 pl-10 pr-4 text-sm text-slate-800 placeholder-slate-400 outline-none transition focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10"
+            className="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 py-2.5 pl-10 pr-11 text-sm font-medium text-slate-800 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 outline-none transition focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10"
           />
+
+          <button
+            type="button"
+            onClick={() => setShowTeacherCode((prev) => !prev)}
+            className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:text-slate-500 dark:hover:text-slate-300 focus:outline-none transition cursor-pointer"
+            title={showTeacherCode ? "Hide verification code" : "Show verification code"}
+            tabIndex={-1}
+          >
+            {showTeacherCode ? <EyeOff size={18} /> : <Eye size={18} />}
+          </button>
         </div>
       </div>
 
@@ -198,7 +211,7 @@ function TeacherCodeVerification() {
         type="button"
         onClick={handleVerify}
         disabled={verifying}
-        className="mt-6 flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-blue-600 to-blue-700 py-3 text-sm font-semibold text-white shadow-md shadow-blue-600/20 transition hover:from-blue-700 hover:to-blue-800 disabled:cursor-not-allowed disabled:opacity-60"
+        className="mt-6 flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-blue-600 to-blue-700 py-3 text-sm font-semibold text-white shadow-md shadow-blue-600/20 transition hover:from-blue-700 hover:to-blue-800 disabled:cursor-not-allowed disabled:opacity-60 cursor-pointer"
       >
         {verifying ? (
           <>
@@ -217,7 +230,7 @@ function TeacherCodeVerification() {
         type="button"
         onClick={handleBackToLogin}
         disabled={verifying}
-        className="mt-3 flex w-full items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white py-2.5 text-xs font-semibold text-slate-600 transition hover:bg-slate-50 disabled:opacity-60"
+        className="mt-3 flex w-full items-center justify-center gap-2 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 py-2.5 text-xs font-semibold text-slate-600 dark:text-slate-300 transition hover:bg-slate-50 dark:hover:bg-slate-800 disabled:opacity-60 cursor-pointer"
       >
         <ArrowLeft size={15} />
         <span>Back to Sign In</span>

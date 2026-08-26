@@ -19,7 +19,7 @@ export interface ExamResult {
     score?: number;
     percentage?: number;
     passed?: boolean;
-    submittedAt?: any;
+    submittedAt?: { toDate?: () => Date } | string | null;
 }
 
 export const getStudentResults = async (
@@ -47,13 +47,14 @@ export const getStudentResults = async (
             }) as ExamResult
     );
 
-    return results.sort((a, b) => {
-        const aTime =
-            a.submittedAt?.toDate?.()?.getTime?.() || 0;
+    const getTime = (ts?: { toDate?: () => Date } | string | null) => {
+        if (!ts) return 0;
+        if (typeof ts === "object" && "toDate" in ts && typeof ts.toDate === "function") {
+            return ts.toDate().getTime();
+        }
+        const d = new Date(ts as string);
+        return Number.isNaN(d.getTime()) ? 0 : d.getTime();
+    };
 
-        const bTime =
-            b.submittedAt?.toDate?.()?.getTime?.() || 0;
-
-        return bTime - aTime;
-    });
+    return results.sort((a, b) => getTime(b.submittedAt) - getTime(a.submittedAt));
 };

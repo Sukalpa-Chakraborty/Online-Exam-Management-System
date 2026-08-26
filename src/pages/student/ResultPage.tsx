@@ -6,6 +6,7 @@ import {
 } from "react-router-dom";
 
 import {
+  Ban,
   CheckCircle2,
   CircleX,
   FileText,
@@ -50,17 +51,24 @@ interface ExamResult {
   examId: string;
   examTitle: string;
   subject: string;
-  totalQuestions: number;
-  correctAnswers: number;
-  wrongAnswers: number;
-  unanswered: number;
-  obtainedMarks: number;
-  totalMarks: number;
-  percentage: number;
-  submittedAutomatically: boolean;
+  totalQuestions?: number;
+  correctAnswers?: number;
+  wrongAnswers?: number;
+  unanswered?: number;
+  obtainedMarks?: number;
+  totalMarks?: number;
+  percentage?: number;
+  submittedAutomatically?: boolean;
   evaluationStatus?: "pending" | "partially_evaluated" | "evaluated" | "completed";
   pendingEvaluationCount?: number;
-  questions: ResultQuestion[];
+  questions?: ResultQuestion[];
+  status?: "completed" | "evaluated" | "cancelled" | "in_progress" | "submitted";
+  cancelledBy?: string;
+  cancelledByName?: string;
+  cancelledAt?: string;
+  cancellationReason?: string;
+  integrityWarningsCount?: number;
+  integrityLogs?: Array<{ type: string; timestamp: string; details: string }>;
 }
 
 interface LocationState {
@@ -165,7 +173,7 @@ function ResultPage() {
           <button
             type="button"
             onClick={() => navigate("/student/results")}
-            className="mt-6 w-full rounded-xl bg-blue-600 py-2.5 text-xs font-semibold text-white shadow-xs transition hover:bg-blue-700"
+            className="mt-6 w-full rounded-xl bg-blue-600 py-2.5 text-xs font-semibold text-white shadow-xs transition hover:bg-blue-700 cursor-pointer"
           >
             View My Results
           </button>
@@ -174,18 +182,24 @@ function ResultPage() {
     );
   }
 
+  const isCancelled = result.status === "cancelled";
+
   const awaitingEvaluation =
-    result.evaluationStatus === "pending" ||
-    result.evaluationStatus === "partially_evaluated";
+    !isCancelled &&
+    (result.evaluationStatus === "pending" ||
+      result.evaluationStatus === "partially_evaluated");
 
-  const evaluationLabel =
-    result.evaluationStatus === "partially_evaluated"
-      ? "Partially Evaluated"
-      : result.evaluationStatus === "pending"
-      ? "Pending Evaluation"
-      : "Evaluated";
+  const evaluationLabel = isCancelled
+    ? "Session Cancelled"
+    : result.evaluationStatus === "partially_evaluated"
+    ? "Partially Evaluated"
+    : result.evaluationStatus === "pending"
+    ? "Pending Evaluation"
+    : "Evaluated";
 
-  const passed = Number(result.percentage) >= 40;
+  const percentage = Number(result.percentage || 0);
+  const passed = !isCancelled && percentage >= 40;
+  const questionsList = Array.isArray(result.questions) ? result.questions : [];
 
   return (
     <div className="min-h-screen bg-slate-50/70 font-sans text-slate-900">
@@ -196,149 +210,136 @@ function ResultPage() {
             <span className="rounded bg-blue-50 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-blue-700">
               {result.subject || "Exam Result"}
             </span>
-            <h1 className="mt-1 text-base font-bold text-slate-900 sm:text-lg">
-              {result.examTitle}
+            <h1 className="mt-1 text-base font-bold tracking-tight text-slate-900 md:text-lg">
+              {result.examTitle || "Examination"}
             </h1>
           </div>
 
-          <div className="flex items-center gap-2.5">
-            <button
-              type="button"
-              onClick={() => navigate("/student/dashboard")}
-              className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3.5 py-2 text-xs font-semibold text-slate-700 shadow-xs transition hover:bg-slate-50"
-            >
-              <Home size={15} />
-              <span className="hidden sm:inline">Dashboard</span>
-            </button>
-          </div>
+          <button
+            type="button"
+            onClick={() => navigate("/student/dashboard")}
+            className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3.5 py-2 text-xs font-semibold text-slate-700 shadow-2xs transition hover:bg-slate-50 cursor-pointer"
+          >
+            <Home size={15} />
+            <span className="hidden sm:inline">Dashboard</span>
+          </button>
         </div>
       </header>
 
-      <main className="mx-auto max-w-5xl space-y-6 p-4 md:p-8">
-        {result.submittedAutomatically && (
-          <div className="rounded-2xl border border-amber-200 bg-amber-50/90 p-4 text-xs font-medium text-amber-800">
-            Time expired. Your examination was submitted automatically.
-          </div>
-        )}
-
-        {awaitingEvaluation && (
-          <div className="rounded-2xl border border-amber-200 bg-amber-50/90 p-4 text-xs leading-relaxed text-amber-900">
-            <span className="font-bold">{evaluationLabel}.</span> Your short-answer response
-            {result.pendingEvaluationCount === 1 ? " is" : "s are"} awaiting instructor grading. Your final score will automatically calculate once all answers are reviewed.
-          </div>
-        )}
-
-        {/* Score Showcase Hero */}
-        <section className="relative overflow-hidden rounded-3xl bg-slate-950 p-6 text-white shadow-xl shadow-slate-950/10 md:p-8">
-          <div className="pointer-events-none absolute -right-10 -top-10 h-48 w-48 rounded-full bg-blue-600/20 blur-2xl" />
-
-          <div className="relative z-10 flex flex-col items-center gap-6 text-center sm:flex-row sm:text-left">
-            <div
-              className={`flex h-20 w-20 shrink-0 items-center justify-center rounded-2xl ${
-                awaitingEvaluation
-                  ? "bg-amber-400/20 text-amber-300 ring-1 ring-amber-400/30"
-                  : passed
-                  ? "bg-emerald-500/20 text-emerald-400 ring-1 ring-emerald-500/30"
-                  : "bg-red-500/20 text-red-400 ring-1 ring-red-500/30"
-              }`}
-            >
-              {awaitingEvaluation ? (
-                <Loader2 size={36} className="animate-spin" />
-              ) : passed ? (
-                <Trophy size={36} />
-              ) : (
-                <CircleX size={36} />
-              )}
+      <main className="mx-auto max-w-5xl space-y-6 px-4 py-8 md:px-8">
+        {/* Cancelled Banner if applicable */}
+        {isCancelled && (
+          <div className="rounded-3xl border border-red-200 bg-red-50 p-6 text-xs text-red-900 shadow-sm">
+            <div className="flex items-center gap-2.5 font-bold text-red-700 text-sm">
+              <Ban size={20} />
+              <span>Exam Session Cancelled by Instructor</span>
             </div>
-
-            <div className="flex-1">
-              <p className="text-xs font-semibold uppercase tracking-wider text-slate-400">
-                {awaitingEvaluation ? "Evaluation Status" : "Obtained Score"}
-              </p>
-
-              <h2 className="mt-1 text-3xl font-bold tracking-tight text-white md:text-4xl">
-                {awaitingEvaluation
-                  ? evaluationLabel
-                  : `${result.obtainedMarks} / ${result.totalMarks}`}
-              </h2>
-
-              <p className="mt-2 text-xs text-slate-300">
-                {awaitingEvaluation
-                  ? "Final score is pending short-answer teacher evaluations."
-                  : `You attained a score of ${result.percentage}% in this examination.`}
-              </p>
-
-              {!awaitingEvaluation && (
-                <span
-                  className={`mt-3 inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-[11px] font-bold tracking-wider ${
-                    passed
-                      ? "bg-emerald-500/20 text-emerald-300 ring-1 ring-emerald-500/30"
-                      : "bg-red-500/20 text-red-300 ring-1 ring-red-500/30"
-                  }`}
-                >
-                  {passed ? "EXAM PASSED" : "NEEDS IMPROVEMENT"}
-                </span>
-              )}
-            </div>
-
-            {!awaitingEvaluation && (
-              <div className="rounded-2xl border border-white/10 bg-white/5 px-6 py-4 text-center backdrop-blur-xs">
-                <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
-                  Percentage
-                </p>
-                <p className="mt-1 text-3xl font-bold text-white">
-                  {result.percentage}%
-                </p>
+            <p className="mt-2 text-slate-700 leading-relaxed">
+              This examination attempt was invalidated by {result.cancelledByName || "your instructor"}.
+            </p>
+            {result.cancellationReason && (
+              <div className="mt-3 rounded-2xl bg-white/80 border border-red-100 p-3.5 italic text-slate-800">
+                "{result.cancellationReason}"
               </div>
             )}
+            {result.cancelledAt && (
+              <p className="mt-3 text-[11px] text-slate-500">
+                Cancelled on: {new Date(result.cancelledAt).toLocaleString("en-IN")}
+              </p>
+            )}
           </div>
-        </section>
+        )}
 
-        {/* 3 Metric Summary Cards */}
-        <section className="grid gap-4 sm:grid-cols-3">
-          <div className="rounded-2xl border border-slate-200/80 bg-white p-5 shadow-xs">
-            <div className="flex items-center gap-3.5">
-              <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-emerald-50 text-emerald-600">
-                <CheckCircle2 size={22} />
+        {/* Score Summary Card */}
+        <section className="overflow-hidden rounded-3xl border border-slate-200/80 bg-white p-6 shadow-sm md:p-8">
+          <div className="flex flex-col items-center justify-between gap-6 md:flex-row">
+            <div className="flex items-center gap-5">
+              <div
+                className={`flex h-16 w-16 shrink-0 items-center justify-center rounded-2xl ${
+                  isCancelled
+                    ? "bg-red-50 text-red-600"
+                    : passed
+                    ? "bg-emerald-50 text-emerald-600"
+                    : "bg-red-50 text-red-600"
+                }`}
+              >
+                {isCancelled ? (
+                  <Ban size={32} />
+                ) : passed ? (
+                  <Trophy size={32} />
+                ) : (
+                  <RotateCcw size={32} />
+                )}
               </div>
+
               <div>
-                <p className="text-xs font-medium text-slate-500 uppercase tracking-wider">
+                <div className="flex items-center gap-2">
+                  <span
+                    className={`rounded-full px-2.5 py-0.5 text-xs font-bold ${
+                      isCancelled
+                        ? "bg-red-100 text-red-800"
+                        : passed
+                        ? "bg-emerald-100 text-emerald-800"
+                        : "bg-red-100 text-red-800"
+                    }`}
+                  >
+                    {isCancelled ? "Cancelled" : passed ? "Passed" : "Failed"}
+                  </span>
+
+                  <span className="rounded-full bg-slate-100 px-2.5 py-0.5 text-xs font-bold text-slate-600">
+                    {evaluationLabel}
+                  </span>
+                </div>
+
+                <h2 className="mt-2 text-2xl font-bold tracking-tight text-slate-900 md:text-3xl">
+                  {awaitingEvaluation ? (
+                    "Score Pending"
+                  ) : (
+                    <>
+                      {result.obtainedMarks ?? 0}{" "}
+                      <span className="text-sm font-normal text-slate-400">
+                        / {result.totalMarks ?? 0} Marks
+                      </span>
+                    </>
+                  )}
+                </h2>
+
+                <p className="mt-1 text-xs text-slate-500">
+                  {awaitingEvaluation
+                    ? "Your submission has been saved. Final grades will appear once short-answers are evaluated."
+                    : isCancelled
+                    ? "Attempt was cancelled by faculty."
+                    : `Final Score: ${percentage.toFixed(1)}%`}
+                </p>
+              </div>
+            </div>
+
+            {/* Quick Metrics */}
+            <div className="grid w-full grid-cols-3 gap-3 border-t border-slate-100 pt-4 md:w-auto md:border-0 md:pt-0">
+              <div className="rounded-2xl border border-slate-100 bg-slate-50/60 p-3.5 text-center">
+                <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
                   Correct
                 </p>
-                <p className="text-xl font-bold text-slate-900">
-                  {result.correctAnswers} Questions
+                <p className="text-xl font-bold text-emerald-600">
+                  {result.correctAnswers ?? 0}
                 </p>
               </div>
-            </div>
-          </div>
 
-          <div className="rounded-2xl border border-slate-200/80 bg-white p-5 shadow-xs">
-            <div className="flex items-center gap-3.5">
-              <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-red-50 text-red-600">
-                <CircleX size={22} />
-              </div>
-              <div>
-                <p className="text-xs font-medium text-slate-500 uppercase tracking-wider">
+              <div className="rounded-2xl border border-slate-100 bg-slate-50/60 p-3.5 text-center">
+                <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
                   Incorrect
                 </p>
-                <p className="text-xl font-bold text-slate-900">
-                  {result.wrongAnswers} Questions
+                <p className="text-xl font-bold text-red-600">
+                  {result.wrongAnswers ?? 0}
                 </p>
               </div>
-            </div>
-          </div>
 
-          <div className="rounded-2xl border border-slate-200/80 bg-white p-5 shadow-xs">
-            <div className="flex items-center gap-3.5">
-              <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-slate-100 text-slate-600">
-                <RotateCcw size={22} />
-              </div>
-              <div>
-                <p className="text-xs font-medium text-slate-500 uppercase tracking-wider">
+              <div className="rounded-2xl border border-slate-100 bg-slate-50/60 p-3.5 text-center">
+                <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
                   Unanswered
                 </p>
                 <p className="text-xl font-bold text-slate-900">
-                  {result.unanswered} Questions
+                  {result.unanswered ?? 0}
                 </p>
               </div>
             </div>
@@ -358,128 +359,138 @@ function ResultPage() {
             </div>
           </div>
 
-          <div className="space-y-4">
-            {result.questions.map((question, index) => {
-              const isShortAnswer = question.type === "short_answer";
-              const selectedAnswerText = question.selectedAnswer
-                ? question.options?.[question.selectedAnswer as OptionKey] ||
-                  question.selectedAnswer
-                : "Not Answered";
+          {questionsList.length > 0 ? (
+            <div className="space-y-4">
+              {questionsList.map((question, index) => {
+                const isShortAnswer = question.type === "short_answer";
+                const selectedAnswerText = question.selectedAnswer
+                  ? question.options?.[question.selectedAnswer as OptionKey] ||
+                    question.selectedAnswer
+                  : "Not Answered";
 
-              const correctAnswerText =
-                question.correctAnswer &&
-                question.options?.[question.correctAnswer as OptionKey];
+                const correctAnswerText =
+                  question.correctAnswer &&
+                  question.options?.[question.correctAnswer as OptionKey];
 
-              return (
-                <div
-                  key={question.id}
-                  className={`rounded-2xl border bg-white p-5 shadow-xs transition md:p-6 ${
-                    isShortAnswer
-                      ? "border-blue-200/80"
-                      : question.isCorrect
-                      ? "border-emerald-200/80"
-                      : "border-red-200/80"
-                  }`}
-                >
-                  <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-start">
-                    <div className="flex-1">
-                      <div className="flex items-center gap-2.5">
-                        <span className="rounded-md bg-slate-100 px-2 py-0.5 text-xs font-bold text-slate-700">
-                          Q{index + 1}
-                        </span>
-
-                        {isShortAnswer ? (
-                          <span
-                            className={`text-xs font-bold ${
-                              question.evaluationStatus === "evaluated"
-                                ? "text-emerald-700"
-                                : "text-amber-700"
-                            }`}
-                          >
-                            {question.evaluationStatus === "evaluated"
-                              ? `Graded: ${question.awardedMarks} / ${question.marks} Marks`
-                              : "Pending Teacher Grade"}
-                          </span>
-                        ) : question.isCorrect ? (
-                          <span className="inline-flex items-center gap-1 text-xs font-bold text-emerald-600">
-                            <CheckCircle2 size={15} />
-                            Correct (+{question.marks} Marks)
-                          </span>
-                        ) : (
-                          <span className="inline-flex items-center gap-1 text-xs font-bold text-red-600">
-                            <CircleX size={15} />
-                            {question.selectedAnswer
-                              ? "Incorrect (0 Marks)"
-                              : "Unanswered (0 Marks)"}
-                          </span>
-                        )}
-                      </div>
-
-                      <h3 className="mt-3 text-sm font-semibold leading-relaxed text-slate-900">
-                        {question.question}
-                      </h3>
-                    </div>
-
-                    <span className="rounded-lg bg-slate-50 px-2.5 py-1 text-xs font-semibold text-slate-600">
-                      {question.marks} Mark{question.marks === 1 ? "" : "s"}
-                    </span>
-                  </div>
-
-                  {/* Answers Comparison */}
+                return (
                   <div
-                    className={`mt-4 grid gap-3 ${
-                      isShortAnswer ? "" : "sm:grid-cols-2"
+                    key={question.id || index}
+                    className={`rounded-2xl border bg-white p-5 shadow-xs transition md:p-6 ${
+                      isShortAnswer
+                        ? "border-blue-200/80"
+                        : question.isCorrect
+                        ? "border-emerald-200/80"
+                        : "border-red-200/80"
                     }`}
                   >
-                    <div
-                      className={`rounded-xl p-3.5 text-xs ${
-                        isShortAnswer
-                          ? "bg-blue-50/70 border border-blue-100"
-                          : question.isCorrect
-                          ? "bg-emerald-50/70 border border-emerald-100 text-emerald-900"
-                          : "bg-red-50/70 border border-red-100 text-red-900"
-                      }`}
-                    >
-                      <p className="font-bold text-[10px] uppercase tracking-wider text-slate-500">
-                        Your Submission
-                      </p>
-                      <p className="mt-1 font-semibold">
-                        {isShortAnswer
-                          ? question.selectedAnswer || "Not Answered"
-                          : question.selectedAnswer
-                          ? `${question.selectedAnswer}. ${selectedAnswerText}`
-                          : "Not Answered"}
-                      </p>
+                    <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-start">
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2.5">
+                          <span className="rounded-md bg-slate-100 px-2 py-0.5 text-xs font-bold text-slate-700">
+                            Q{index + 1}
+                          </span>
+
+                          {isShortAnswer ? (
+                            <span
+                              className={`text-xs font-bold ${
+                                question.evaluationStatus === "evaluated"
+                                  ? "text-emerald-700"
+                                  : "text-amber-700"
+                              }`}
+                            >
+                              {question.evaluationStatus === "evaluated"
+                                ? `Graded: ${question.awardedMarks} / ${question.marks} Marks`
+                                : "Pending Teacher Grade"}
+                            </span>
+                          ) : question.isCorrect ? (
+                            <span className="inline-flex items-center gap-1 text-xs font-bold text-emerald-600">
+                              <CheckCircle2 size={15} />
+                              Correct (+{question.marks} Marks)
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center gap-1 text-xs font-bold text-red-600">
+                              <CircleX size={15} />
+                              {question.selectedAnswer
+                                ? "Incorrect (0 Marks)"
+                                : "Unanswered (0 Marks)"}
+                            </span>
+                          )}
+                        </div>
+
+                        <h3 className="mt-3 text-sm font-semibold leading-relaxed text-slate-900">
+                          {question.question}
+                        </h3>
+                      </div>
+
+                      <span className="rounded-lg bg-slate-50 px-2.5 py-1 text-xs font-semibold text-slate-600">
+                        {question.marks} Mark{question.marks === 1 ? "" : "s"}
+                      </span>
                     </div>
 
-                    {!isShortAnswer && (
-                      <div className="rounded-xl border border-emerald-100 bg-emerald-50/70 p-3.5 text-xs text-emerald-900">
+                    {/* Answers Comparison */}
+                    <div
+                      className={`mt-4 grid gap-3 ${
+                        isShortAnswer ? "" : "sm:grid-cols-2"
+                      }`}
+                    >
+                      <div
+                        className={`rounded-xl p-3.5 text-xs ${
+                          isShortAnswer
+                            ? "bg-blue-50/70 border border-blue-100"
+                            : question.isCorrect
+                            ? "bg-emerald-50/70 border border-emerald-100 text-emerald-900"
+                            : "bg-red-50/70 border border-red-100 text-red-900"
+                        }`}
+                      >
                         <p className="font-bold text-[10px] uppercase tracking-wider text-slate-500">
-                          Correct Answer
+                          Your Submission
                         </p>
                         <p className="mt-1 font-semibold">
-                          {question.correctAnswer}. {correctAnswerText}
+                          {isShortAnswer
+                            ? question.selectedAnswer || "Not Answered"
+                            : question.selectedAnswer
+                            ? `${question.selectedAnswer}. ${selectedAnswerText}`
+                            : "Not Answered"}
                         </p>
                       </div>
-                    )}
 
-                    {isShortAnswer &&
-                      question.evaluationStatus === "evaluated" &&
-                      question.feedback && (
-                        <div className="rounded-xl border border-slate-200 bg-slate-50/80 p-3.5 text-xs">
+                      {!isShortAnswer && (
+                        <div className="rounded-xl border border-emerald-100 bg-emerald-50/70 p-3.5 text-xs text-emerald-900">
                           <p className="font-bold text-[10px] uppercase tracking-wider text-slate-500">
-                            Instructor Feedback
+                            Correct Answer
                           </p>
-                          <p className="mt-1 text-slate-700 leading-relaxed">
-                            {question.feedback}
+                          <p className="mt-1 font-semibold">
+                            {question.correctAnswer}. {correctAnswerText || question.correctAnswer}
                           </p>
                         </div>
                       )}
+
+                      {isShortAnswer &&
+                        question.evaluationStatus === "evaluated" &&
+                        question.feedback && (
+                          <div className="rounded-xl border border-slate-200 bg-slate-50/80 p-3.5 text-xs">
+                            <p className="font-bold text-[10px] uppercase tracking-wider text-slate-500">
+                              Instructor Feedback
+                            </p>
+                            <p className="mt-1 text-slate-700 leading-relaxed">
+                              {question.feedback}
+                            </p>
+                          </div>
+                        )}
+                    </div>
                   </div>
-                </div>
-              );
-            })}
-          </div>
+                );
+              })}
+            </div>
+          ) : (
+            <div className="rounded-2xl border border-dashed border-slate-200 bg-white p-8 text-center text-xs text-slate-500">
+              <FileText size={24} className="mx-auto mb-2 text-slate-400" />
+              <p className="font-semibold text-slate-700">No question breakdown available</p>
+              <p className="mt-0.5 text-[11px] text-slate-400">
+                Question-by-question review data is not recorded for this session.
+              </p>
+            </div>
+          )}
         </section>
 
         {/* Footer Actions */}
@@ -487,7 +498,7 @@ function ResultPage() {
           <button
             type="button"
             onClick={() => navigate("/student/results")}
-            className="inline-flex items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-5 py-2.5 text-xs font-bold text-slate-700 shadow-xs transition hover:bg-slate-50"
+            className="inline-flex items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-5 py-2.5 text-xs font-bold text-slate-700 shadow-xs transition hover:bg-slate-50 cursor-pointer"
           >
             <FileText size={15} />
             <span>All My Results</span>
@@ -496,7 +507,7 @@ function ResultPage() {
           <button
             type="button"
             onClick={() => navigate("/student/dashboard")}
-            className="inline-flex items-center justify-center gap-2 rounded-xl bg-blue-600 px-6 py-2.5 text-xs font-bold text-white shadow-xs transition hover:bg-blue-700"
+            className="inline-flex items-center justify-center gap-2 rounded-xl bg-blue-600 px-6 py-2.5 text-xs font-bold text-white shadow-xs transition hover:bg-blue-700 cursor-pointer"
           >
             <Home size={15} />
             <span>Return to Dashboard</span>

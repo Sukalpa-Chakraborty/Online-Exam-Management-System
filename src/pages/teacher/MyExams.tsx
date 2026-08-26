@@ -11,6 +11,7 @@ import {
   Loader2,
   Plus,
   Send,
+  ShieldAlert,
   Trash2,
 } from "lucide-react";
 
@@ -492,6 +493,17 @@ function MyExams() {
                     >
                       <Edit3 size={15} />
                     </button>
+
+                    {isPublished && (
+                      <button
+                        type="button"
+                        onClick={() => navigate("/teacher/monitoring")}
+                        className="inline-flex items-center justify-center rounded-xl border border-blue-200 dark:border-blue-800/60 bg-blue-50/50 dark:bg-blue-950/40 p-2 text-blue-600 dark:text-blue-400 transition hover:bg-blue-100 dark:hover:bg-blue-900/50 cursor-pointer"
+                        title="Live Proctoring & Integrity Monitoring"
+                      >
+                        <ShieldAlert size={15} />
+                      </button>
+                    )}
 
                     <button
                       type="button"

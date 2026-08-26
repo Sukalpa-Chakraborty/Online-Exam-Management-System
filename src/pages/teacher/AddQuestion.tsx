@@ -54,24 +54,25 @@ const initialQuestion: QuestionForm = {
 
 function AddQuestion() {
   const navigate = useNavigate();
-  const { examId } = useParams<{ examId: string }>();
+  const { examId } = useParams<{ examId?: string }>();
   const { user } = useAuth();
+
+  const isExamSpecific = Boolean(examId);
 
   const [question, setQuestion] = useState<QuestionForm>(initialQuestion);
   const [examTitle, setExamTitle] = useState("Loading exam...");
-  const [loadingExam, setLoadingExam] = useState(true);
+  const [loadingExam, setLoadingExam] = useState(isExamSpecific);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
 
   useEffect(() => {
-    const loadExam = async () => {
-      if (!examId) {
-        setError("Exam ID is missing.");
-        setLoadingExam(false);
-        return;
-      }
+    if (!examId) {
+      setLoadingExam(false);
+      return;
+    }
 
+    const loadExam = async () => {
       try {
         setLoadingExam(true);
         const examRef = doc(db, "exams", examId);
@@ -92,7 +93,7 @@ function AddQuestion() {
       }
     };
 
-    loadExam();
+    void loadExam();
   }, [examId]);
 
   const handleTypeChange = (type: QuestionType) => {
@@ -180,62 +181,109 @@ function AddQuestion() {
     setError("");
     setSuccess("");
 
-    if (!examId || !user) return;
+    if (!user) return;
     if (!validateQuestion()) return;
 
     try {
       setSaving(true);
-      const examRef = doc(db, "exams", examId);
 
-      const questionData: Record<string, unknown> = {
-        question: question.question.trim(),
-        type: question.type,
-        marks: Number(question.marks),
-        createdBy: user.uid,
-        source: "manual",
-        createdAt: serverTimestamp(),
-      };
+      if (isExamSpecific && examId) {
+        // 1. SAVE TO SPECIFIC EXAM
+        const examRef = doc(db, "exams", examId);
 
-      if (question.type === "mcq") {
-        questionData.options = {
-          A: question.options.A.trim(),
-          B: question.options.B.trim(),
-          C: question.options.C.trim(),
-          D: question.options.D.trim(),
+        const questionData: Record<string, unknown> = {
+          question: question.question.trim(),
+          type: question.type,
+          marks: Number(question.marks),
+          createdBy: user.uid,
+          source: "manual",
+          createdAt: serverTimestamp(),
         };
-        questionData.correctAnswer = question.correctAnswer;
-      } else if (question.type === "true-false") {
-        questionData.options = {
-          A: "True",
-          B: "False",
-          C: "",
-          D: "",
-        };
-        questionData.correctAnswer = question.correctAnswer;
+
+        if (question.type === "mcq") {
+          questionData.options = {
+            A: question.options.A.trim(),
+            B: question.options.B.trim(),
+            C: question.options.C.trim(),
+            D: question.options.D.trim(),
+          };
+          questionData.correctAnswer = question.correctAnswer;
+        } else if (question.type === "true-false") {
+          questionData.options = {
+            A: "True",
+            B: "False",
+            C: "",
+            D: "",
+          };
+          questionData.correctAnswer = question.correctAnswer;
+        } else {
+          questionData.options = {};
+          questionData.correctAnswer = question.correctAnswer.trim();
+        }
+
+        await addDoc(collection(db, "exams", examId, "questions"), questionData);
+
+        await updateDoc(examRef, {
+          questionCount: increment(1),
+          totalQuestions: increment(1),
+          totalMarks: increment(Number(question.marks)),
+          updatedAt: serverTimestamp(),
+        });
+
+        setSuccess("Question added to exam successfully.");
+
+        setTimeout(() => {
+          navigate(`/teacher/exams/${examId}/questions`);
+        }, 700);
       } else {
-        questionData.options = {};
-        questionData.correctAnswer = question.correctAnswer.trim();
+        // 2. SAVE DIRECTLY TO QUESTION BANK
+        let resolvedCorrect = question.correctAnswer;
+        let optionsList: string[] = [];
+
+        if (question.type === "mcq") {
+          optionsList = [
+            question.options.A.trim(),
+            question.options.B.trim(),
+            question.options.C.trim(),
+            question.options.D.trim(),
+          ].filter(Boolean);
+          resolvedCorrect = question.options[question.correctAnswer as OptionKey] || question.correctAnswer;
+        } else if (question.type === "true-false") {
+          optionsList = ["True", "False"];
+          resolvedCorrect = question.correctAnswer === "A" ? "True" : "False";
+        }
+
+        const bankData = {
+          teacherId: user.uid,
+          question: question.question.trim(),
+          type: question.type,
+          marks: Number(question.marks),
+          options: optionsList,
+          correctAnswer: resolvedCorrect,
+          createdAt: serverTimestamp(),
+        };
+
+        await addDoc(collection(db, "questionBank"), bankData);
+
+        setSuccess("Question added to Question Bank successfully.");
+
+        setTimeout(() => {
+          navigate("/teacher/questions");
+        }, 700);
       }
-
-      await addDoc(collection(db, "exams", examId, "questions"), questionData);
-
-      await updateDoc(examRef, {
-        questionCount: increment(1),
-        totalQuestions: increment(1),
-        totalMarks: increment(Number(question.marks)),
-        updatedAt: serverTimestamp(),
-      });
-
-      setSuccess("Question added to exam successfully.");
-
-      setTimeout(() => {
-        navigate(`/teacher/exams/${examId}/questions`);
-      }, 700);
     } catch (err) {
       console.error("Failed to add question:", err);
       setError("Failed to add the question. Please try again.");
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handleCancel = () => {
+    if (isExamSpecific && examId) {
+      navigate(`/teacher/exams/${examId}/questions`);
+    } else {
+      navigate("/teacher/questions");
     }
   };
 
@@ -261,32 +309,42 @@ function AddQuestion() {
   return (
     <DashboardLayout
       role="teacher"
-      title="Add Question"
-      subtitle="Draft a customized question for this exam."
+      title={isExamSpecific ? "Add Question to Exam" : "Create Question"}
+      subtitle={
+        isExamSpecific
+          ? `Draft a customized question for "${examTitle}".`
+          : "Draft a reusable question for your central Question Bank."
+      }
     >
       <div className="mx-auto max-w-4xl space-y-6">
         <button
           type="button"
-          onClick={() => navigate(`/teacher/exams/${examId}/questions`)}
-          className="inline-flex items-center gap-2 text-xs font-semibold text-slate-500 transition hover:text-blue-600"
+          onClick={handleCancel}
+          className="inline-flex items-center gap-2 text-xs font-semibold text-slate-500 transition hover:text-blue-600 cursor-pointer"
         >
           <ArrowLeft size={16} />
-          <span>Back to Exam Questions</span>
+          <span>
+            {isExamSpecific ? "Back to Exam Questions" : "Back to Question Bank"}
+          </span>
         </button>
 
-        <div className="overflow-hidden rounded-3xl border border-slate-200/80 bg-white shadow-xs">
+        <div className="overflow-hidden rounded-3xl border border-slate-200/80 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-xs">
           {/* Header */}
-          <div className="border-b border-slate-100 p-6 md:p-8">
+          <div className="border-b border-slate-100 dark:border-slate-800 p-6 md:p-8">
             <div className="flex items-start gap-4">
-              <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-blue-50 text-blue-600">
+              <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-blue-50 dark:bg-blue-950/50 text-blue-600 dark:text-blue-400">
                 <HelpCircle size={22} />
               </div>
               <div>
-                <h1 className="text-lg font-bold text-slate-900 md:text-xl">
-                  Add Question to {examTitle}
+                <h1 className="text-lg font-bold text-slate-900 dark:text-white md:text-xl">
+                  {isExamSpecific
+                    ? `Add Question to ${examTitle}`
+                    : "Create New Library Question"}
                 </h1>
-                <p className="mt-0.5 text-xs text-slate-500">
-                  Select question type and configure options and marks.
+                <p className="mt-0.5 text-xs text-slate-500 dark:text-slate-400">
+                  {isExamSpecific
+                    ? "Select question type and configure options and marks for this exam."
+                    : "Configure question details, choices, and reference grading answers."}
                 </p>
               </div>
             </div>
@@ -294,21 +352,21 @@ function AddQuestion() {
 
           <div className="space-y-6 p-6 md:p-8">
             {error && (
-              <div className="rounded-xl border border-red-200 bg-red-50 p-3 text-xs font-medium text-red-700">
+              <div className="rounded-xl border border-red-200 dark:border-red-900/50 bg-red-50 dark:bg-red-950/50 p-3 text-xs font-medium text-red-700 dark:text-red-300">
                 {error}
               </div>
             )}
 
             {success && (
-              <div className="flex items-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50 p-3 text-xs font-medium text-emerald-800">
-                <CheckCircle2 size={16} className="text-emerald-600" />
+              <div className="flex items-center gap-2 rounded-xl border border-emerald-200 dark:border-emerald-900/50 bg-emerald-50 dark:bg-emerald-950/50 p-3 text-xs font-medium text-emerald-800 dark:text-emerald-300">
+                <CheckCircle2 size={16} className="text-emerald-600 dark:text-emerald-400" />
                 <span>{success}</span>
               </div>
             )}
 
             {/* Type Selector */}
             <div>
-              <label className="mb-2 block text-xs font-semibold text-slate-700">
+              <label className="mb-2 block text-xs font-semibold text-slate-700 dark:text-slate-300">
                 Question Type
               </label>
 
@@ -322,14 +380,14 @@ function AddQuestion() {
                     key={item.key}
                     type="button"
                     onClick={() => handleTypeChange(item.key as QuestionType)}
-                    className={`rounded-2xl border p-4 text-left transition ${
+                    className={`rounded-2xl border p-4 text-left transition cursor-pointer ${
                       question.type === item.key
-                        ? "border-blue-600 bg-blue-50/60 ring-2 ring-blue-500/20"
-                        : "border-slate-200 hover:border-slate-300 hover:bg-slate-50"
+                        ? "border-blue-600 bg-blue-50/60 dark:bg-blue-950/50 ring-2 ring-blue-500/20"
+                        : "border-slate-200 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800/50"
                     }`}
                   >
-                    <p className="text-xs font-bold text-slate-900">{item.label}</p>
-                    <p className="mt-0.5 text-[11px] text-slate-500">{item.desc}</p>
+                    <p className="text-xs font-bold text-slate-900 dark:text-white">{item.label}</p>
+                    <p className="mt-0.5 text-[11px] text-slate-500 dark:text-slate-400">{item.desc}</p>
                   </button>
                 ))}
               </div>
@@ -337,21 +395,21 @@ function AddQuestion() {
 
             {/* Question Text */}
             <div>
-              <label className="mb-1.5 block text-xs font-semibold text-slate-700">
+              <label className="mb-1.5 block text-xs font-semibold text-slate-700 dark:text-slate-300">
                 Question Text <span className="text-red-500">*</span>
               </label>
               <textarea
                 value={question.question}
                 onChange={(e) => handleQuestionChange(e.target.value)}
-                placeholder="Type your examination question here..."
+                placeholder="Type your question here..."
                 rows={4}
-                className="w-full resize-none rounded-xl border border-slate-200 bg-white p-3.5 text-xs text-slate-800 placeholder-slate-400 outline-none transition focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10"
+                className="w-full resize-none rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-950 p-3.5 text-xs text-slate-800 dark:text-white placeholder-slate-400 outline-none transition focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10"
               />
             </div>
 
             {/* Marks */}
             <div className="max-w-xs">
-              <label className="mb-1.5 block text-xs font-semibold text-slate-700">
+              <label className="mb-1.5 block text-xs font-semibold text-slate-700 dark:text-slate-300">
                 Awarded Marks
               </label>
               <input
@@ -359,14 +417,14 @@ function AddQuestion() {
                 min="1"
                 value={question.marks}
                 onChange={(e) => handleMarksChange(e.target.value)}
-                className="w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-xs font-semibold text-slate-800 outline-none transition focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10"
+                className="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-950 px-3.5 py-2.5 text-xs font-semibold text-slate-800 dark:text-white outline-none transition focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10"
               />
             </div>
 
             {/* MCQ Options */}
             {question.type === "mcq" && (
               <div className="space-y-3">
-                <label className="block text-xs font-semibold text-slate-700">
+                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300">
                   Choices & Correct Answer
                 </label>
 
@@ -376,8 +434,8 @@ function AddQuestion() {
                       key={key}
                       className={`flex cursor-pointer items-center gap-3 rounded-2xl border p-3 transition ${
                         question.correctAnswer === key
-                          ? "border-emerald-500 bg-emerald-50/50 ring-2 ring-emerald-500/20"
-                          : "border-slate-200 hover:border-slate-300"
+                          ? "border-emerald-500 bg-emerald-50/50 dark:bg-emerald-950/40 ring-2 ring-emerald-500/20"
+                          : "border-slate-200 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700"
                       }`}
                     >
                       <input
@@ -388,7 +446,7 @@ function AddQuestion() {
                         className="h-4 w-4 accent-emerald-600"
                       />
 
-                      <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-slate-100 text-xs font-bold text-slate-700">
+                      <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-slate-100 dark:bg-slate-800 text-xs font-bold text-slate-700 dark:text-slate-300">
                         {key}
                       </span>
 
@@ -397,7 +455,7 @@ function AddQuestion() {
                         value={question.options[key]}
                         onChange={(e) => handleOptionChange(key, e.target.value)}
                         placeholder={`Option ${key}`}
-                        className="w-full bg-transparent text-xs text-slate-800 outline-none"
+                        className="w-full bg-transparent text-xs text-slate-800 dark:text-white outline-none"
                       />
                     </label>
                   ))}
@@ -408,7 +466,7 @@ function AddQuestion() {
             {/* True / False */}
             {question.type === "true-false" && (
               <div>
-                <label className="mb-2 block text-xs font-semibold text-slate-700">
+                <label className="mb-2 block text-xs font-semibold text-slate-700 dark:text-slate-300">
                   Select Correct Answer
                 </label>
 
@@ -422,10 +480,10 @@ function AddQuestion() {
                         key={key}
                         type="button"
                         onClick={() => handleCorrectAnswerChange(key)}
-                        className={`flex-1 rounded-2xl border py-3 text-xs font-bold transition ${
+                        className={`flex-1 rounded-2xl border py-3 text-xs font-bold transition cursor-pointer ${
                           isSelected
-                            ? "border-emerald-600 bg-emerald-50 text-emerald-800 ring-2 ring-emerald-500/20"
-                            : "border-slate-200 text-slate-600 hover:bg-slate-50"
+                            ? "border-emerald-600 bg-emerald-50 dark:bg-emerald-950/50 text-emerald-800 dark:text-emerald-300 ring-2 ring-emerald-500/20"
+                            : "border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800/50"
                         }`}
                       >
                         {label}
@@ -439,7 +497,7 @@ function AddQuestion() {
             {/* Short Answer */}
             {question.type === "short-answer" && (
               <div>
-                <label className="mb-1.5 block text-xs font-semibold text-slate-700">
+                <label className="mb-1.5 block text-xs font-semibold text-slate-700 dark:text-slate-300">
                   Reference Answer / Rubric
                 </label>
                 <textarea
@@ -447,17 +505,17 @@ function AddQuestion() {
                   onChange={(e) => handleCorrectAnswerChange(e.target.value)}
                   placeholder="Enter reference keywords or grading guidelines..."
                   rows={3}
-                  className="w-full resize-none rounded-xl border border-slate-200 bg-white p-3.5 text-xs text-slate-800 outline-none transition focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10"
+                  className="w-full resize-none rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-950 p-3.5 text-xs text-slate-800 dark:text-white outline-none transition focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10"
                 />
               </div>
             )}
 
             {/* Submit Toolbar */}
-            <div className="flex justify-end gap-3 border-t border-slate-100 pt-6">
+            <div className="flex justify-end gap-3 border-t border-slate-100 dark:border-slate-800 pt-6">
               <button
                 type="button"
-                onClick={() => navigate(`/teacher/exams/${examId}/questions`)}
-                className="rounded-xl border border-slate-200 px-5 py-2.5 text-xs font-semibold text-slate-700 transition hover:bg-slate-50"
+                onClick={handleCancel}
+                className="rounded-xl border border-slate-200 dark:border-slate-800 px-5 py-2.5 text-xs font-semibold text-slate-700 dark:text-slate-300 transition hover:bg-slate-50 dark:hover:bg-slate-800 cursor-pointer"
               >
                 Cancel
               </button>
@@ -466,7 +524,7 @@ function AddQuestion() {
                 type="button"
                 onClick={handleSaveQuestion}
                 disabled={saving}
-                className="inline-flex items-center gap-1.5 rounded-xl bg-gradient-to-r from-blue-600 to-blue-700 px-6 py-2.5 text-xs font-bold text-white shadow-md shadow-blue-600/20 transition hover:from-blue-700 hover:to-blue-800 disabled:opacity-60"
+                className="inline-flex items-center gap-1.5 rounded-xl bg-gradient-to-r from-blue-600 to-blue-700 px-6 py-2.5 text-xs font-bold text-white shadow-md shadow-blue-600/20 transition hover:from-blue-700 hover:to-blue-800 disabled:opacity-60 cursor-pointer"
               >
                 {saving ? (
                   <>

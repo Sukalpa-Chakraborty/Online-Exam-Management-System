@@ -80,17 +80,14 @@ function ExamHistory() {
             }) as ExamHistoryItem
         );
 
-        history.sort((a, b) => {
-          const firstTime = a.submittedAt?.toDate
-            ? a.submittedAt.toDate().getTime()
-            : 0;
+        const getTime = (ts: any) => {
+          if (!ts) return 0;
+          if (typeof ts?.toDate === "function") return ts.toDate().getTime();
+          const d = new Date(ts);
+          return Number.isNaN(d.getTime()) ? 0 : d.getTime();
+        };
 
-          const secondTime = b.submittedAt?.toDate
-            ? b.submittedAt.toDate().getTime()
-            : 0;
-
-          return secondTime - firstTime;
-        });
+        history.sort((a, b) => getTime(b.submittedAt) - getTime(a.submittedAt));
 
         setResults(history);
       } catch (err) {
