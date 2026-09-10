@@ -186,16 +186,6 @@ tailwindcss: ^4.3.3
 2. Install dependencies: `npm install` (or `yarn` / `pnpm install` / `bun install`)
 3. Start the dev server: see the **Quick Start** above
 
-## 👥 Contributors
-
-Thanks to everyone who has contributed to this project:
-
-<p align="left">
-<a href="https://github.com/Sukalpa-Chakraborty" title="Sukalpa-Chakraborty"><img src="https://avatars.githubusercontent.com/u/157386337?v=4&s=64" width="64" height="64" alt="Sukalpa-Chakraborty" style="border-radius:50%" /></a>
-</p>
-
-[See the full list of contributors →](https://github.com/Sukalpa-Chakraborty/Online-Exam-Management-System/graphs/contributors)
-
 ## 👥 Contributing
 
 Contributions are welcome! Here's the standard flow:
