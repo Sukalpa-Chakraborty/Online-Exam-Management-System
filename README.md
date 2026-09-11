@@ -38,10 +38,6 @@ Online Exam Management System (ExamSphere) is a web application designed to orga
 - Managing test questions and automated assessments across multiple academic classes
 - Tracking student examination progress and viewing historical performance trends
 
-## 📸 Screenshots
-
-![hero](https://raw.githubusercontent.com/Sukalpa-Chakraborty/Online-Exam-Management-System/main/src/assets/hero.png)
-
 ## 🛠️ Tech Stack
 
 ![Firebase](https://img.shields.io/badge/Firebase-FFCA28?style=for-the-badge&logo=firebase&logoColor=white) ![React](https://img.shields.io/badge/React-61DAFB?style=for-the-badge&logo=react&logoColor=white) ![Tailwind CSS](https://img.shields.io/badge/Tailwind%20CSS-06B6D4?style=for-the-badge&logo=tailwindcss&logoColor=white) ![TypeScript](https://img.shields.io/badge/TypeScript-3178C6?style=for-the-badge&logo=typescript&logoColor=white) ![Vite](https://img.shields.io/badge/Vite-646CFF?style=for-the-badge&logo=vite&logoColor=white)
@@ -190,16 +186,6 @@ tailwindcss: ^4.3.3
 1. Install Node.js (v18+ recommended)
 2. Install dependencies: `npm install` (or `yarn` / `pnpm install` / `bun install`)
 3. Start the dev server: see the **Quick Start** above
-
-## 👥 Contributors
-
-Thanks to everyone who has contributed to this project:
-
-<p align="left">
-<a href="https://github.com/Sukalpa-Chakraborty" title="Sukalpa-Chakraborty"><img src="https://avatars.githubusercontent.com/u/157386337?v=4&s=64" width="64" height="64" alt="Sukalpa-Chakraborty" style="border-radius:50%" /></a>
-</p>
-
-[See the full list of contributors →](https://github.com/Sukalpa-Chakraborty/Online-Exam-Management-System/graphs/contributors)
 
 ## 👥 Contributing
 
