@@ -21,6 +21,7 @@ import {
   ShieldAlert,
   ShieldCheck,
   Sparkles,
+  Timer,
   X,
   XCircle,
 } from "lucide-react";
@@ -50,6 +51,11 @@ import {
   type IntegrityEvent,
   type IntegrityEventType,
 } from "../../services/examAttemptService";
+import {
+  calculateExamEndTime,
+  getExamScheduleDetails,
+  getServerTime,
+} from "../../services/serverTimeService";
 
 type QuestionType = "mcq" | "true_false" | "short_answer";
 type OptionKey = "A" | "B" | "C" | "D";
@@ -59,6 +65,8 @@ interface Exam {
   title: string;
   subject: string;
   duration: number;
+  startTime?: string;
+  endTime?: string;
   status: string;
   teacherId?: string;
 }
@@ -408,12 +416,51 @@ function AttemptExam() {
         }
 
         const duration = Number(examData.duration) || 30;
+        const calculatedEndTime =
+          examData.endTime ||
+          calculateExamEndTime(examData.startTime, duration);
+
+        const schedule = getExamScheduleDetails(
+          examData.startTime,
+          duration,
+          calculatedEndTime
+        );
+
+        if (schedule.status === "scheduled") {
+          const startTimeStr = examData.startTime
+            ? new Date(examData.startTime).toLocaleTimeString("en-IN", {
+                hour: "numeric",
+                minute: "2-digit",
+              })
+            : "the scheduled time";
+          setError(
+            `This exam has not started yet. It will open at ${startTimeStr}.`
+          );
+          setLoading(false);
+          return;
+        }
+
+        if (schedule.status === "completed") {
+          const endTimeStr = calculatedEndTime
+            ? new Date(calculatedEndTime).toLocaleTimeString("en-IN", {
+                hour: "numeric",
+                minute: "2-digit",
+              })
+            : "the scheduled end time";
+          setError(
+            `The exam window closed at ${endTimeStr}. Attempts are no longer accepted.`
+          );
+          setLoading(false);
+          return;
+        }
 
         setExam({
           id: examSnapshot.id,
           title: examData.title || "Untitled Exam",
           subject: examData.subject || "General",
           duration,
+          startTime: examData.startTime,
+          endTime: calculatedEndTime,
           status: examData.status,
           teacherId: examData.teacherId || "",
         });
@@ -481,6 +528,13 @@ function AttemptExam() {
           return;
         }
 
+        const now = getServerTime();
+        const endTimeMs = new Date(calculatedEndTime).getTime();
+        const windowRemainingSeconds = Math.max(
+          0,
+          Math.floor((endTimeMs - now) / 1000)
+        );
+
         if (existingDraft && existingDraft.startedAt) {
           setStartedAt(existingDraft.startedAt);
           setAnswers(existingDraft.answers || {});
@@ -489,17 +543,28 @@ function AttemptExam() {
           setSaveStatus("saved");
           setLastSavedText("Recovered from previous session");
 
-          // Calculate remaining time safely based on original startedAt
+          // Calculate remaining time considering both personal startedAt and window deadline
           const elapsedSeconds = Math.floor(
-            (Date.now() - new Date(existingDraft.startedAt).getTime()) / 1000
+            (now - new Date(existingDraft.startedAt).getTime()) / 1000
           );
-          const remainingSeconds = Math.max(0, duration * 60 - elapsedSeconds);
-          setTimeLeft(remainingSeconds);
+          const personalRemainingSeconds = Math.max(
+            0,
+            duration * 60 - elapsedSeconds
+          );
+          const effectiveRemaining = Math.min(
+            windowRemainingSeconds,
+            personalRemainingSeconds
+          );
 
-          // If student was already actively attempting, transition to active
+          setTimeLeft(effectiveRemaining);
           setFlowStep("active");
         } else {
-          setTimeLeft(duration * 60);
+          // New Attempt: effective time is bounded by the window end
+          const effectiveRemaining = Math.min(
+            windowRemainingSeconds,
+            duration * 60
+          );
+          setTimeLeft(effectiveRemaining);
           setFlowStep("pre_check");
         }
       } catch (err: unknown) {
@@ -780,13 +845,45 @@ function AttemptExam() {
   const handleStartExamFromPreCheck = async () => {
     if (!exam || !user) return;
 
-    // 1. Trigger Fullscreen from this direct user interaction
+    // 1. Re-verify live schedule status
+    const schedule = getExamScheduleDetails(
+      exam.startTime,
+      exam.duration,
+      exam.endTime
+    );
+
+    if (schedule.status === "scheduled") {
+      setError("This exam has not started yet.");
+      return;
+    }
+    if (schedule.status === "completed") {
+      setError("The exam window has ended. Attempts are no longer permitted.");
+      return;
+    }
+
+    // 2. Trigger Fullscreen from this direct user interaction
     await enterFullscreenMode();
 
-    // 2. Set start time and initialize draft
-    const attemptStartTime = startedAt || new Date().toISOString();
+    // 3. Set start time and initialize draft
+    const attemptStartTime =
+      startedAt || new Date(getServerTime()).toISOString();
     setStartedAt(attemptStartTime);
     startedAtRef.current = attemptStartTime;
+
+    const now = getServerTime();
+    const endTimeMs = exam.endTime
+      ? new Date(exam.endTime).getTime()
+      : new Date(schedule.endTime).getTime();
+    const windowRemainingSeconds = Math.max(
+      0,
+      Math.floor((endTimeMs - now) / 1000)
+    );
+    const personalRemainingSeconds = exam.duration * 60;
+    const effectiveRemaining = Math.min(
+      windowRemainingSeconds,
+      personalRemainingSeconds
+    );
+    setTimeLeft(effectiveRemaining);
 
     const studentName =
       userProfile?.name ||
@@ -818,28 +915,49 @@ function AttemptExam() {
     setFlowStep("active");
   };
 
-  // Timer Countdown during Active Exam
+  // Timer Countdown during Active Exam with Authoritative Server Time Synchronization
   useEffect(() => {
     if (loading || submitting || submittedRef.current || !exam || flowStep !== "active") return;
 
-    if (timeLeft <= 0 && startedAt) {
+    const calculateAuthoritativeRemaining = () => {
+      const now = getServerTime();
+      const endTimeMs = exam.endTime
+        ? new Date(exam.endTime).getTime()
+        : exam.startTime
+        ? new Date(exam.startTime).getTime() + exam.duration * 60000
+        : now + exam.duration * 60000;
+      const windowRemainingSeconds = Math.max(
+        0,
+        Math.floor((endTimeMs - now) / 1000)
+      );
+
+      const startedAtMs = startedAt ? new Date(startedAt).getTime() : now;
+      const personalRemainingSeconds = Math.max(
+        0,
+        Math.floor(exam.duration * 60 - (now - startedAtMs) / 1000)
+      );
+
+      return Math.min(windowRemainingSeconds, personalRemainingSeconds);
+    };
+
+    const initialRemaining = calculateAuthoritativeRemaining();
+    if (initialRemaining <= 0) {
+      setTimeLeft(0);
       void submitExam(true);
       return;
     }
 
     const timer = window.setInterval(() => {
-      setTimeLeft((prev) => {
-        if (prev <= 1) {
-          window.clearInterval(timer);
-          void submitExam(true);
-          return 0;
-        }
-        return prev - 1;
-      });
+      const remaining = calculateAuthoritativeRemaining();
+      setTimeLeft(remaining);
+      if (remaining <= 0) {
+        window.clearInterval(timer);
+        void submitExam(true);
+      }
     }, 1000);
 
     return () => window.clearInterval(timer);
-  }, [loading, submitting, exam, timeLeft, startedAt, flowStep]);
+  }, [loading, submitting, exam, startedAt, flowStep]);
 
   // Submit Exam Function
   const submitExam = async (
@@ -1155,14 +1273,19 @@ function AttemptExam() {
           {/* Header Specs */}
           <div className="flex items-center justify-between border-b border-slate-800 pb-5">
             <div>
-              <div className="flex items-center gap-2">
+              <div className="flex flex-wrap items-center gap-2">
                 <span className="rounded-md bg-blue-500/15 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-blue-400 border border-blue-500/20">
                   {exam.subject}
                 </span>
                 <span className="flex items-center gap-1 text-xs text-slate-400">
                   <Clock3 size={14} className="text-blue-400" />
-                  <span>{exam.duration} Minutes</span>
+                  <span>{exam.duration} Minutes Max</span>
                 </span>
+                {exam.endTime && (
+                  <span className="rounded-full bg-emerald-500/10 border border-emerald-500/20 px-2.5 py-0.5 text-[10px] font-bold text-emerald-400">
+                    Window Ends: {new Date(exam.endTime).toLocaleTimeString("en-IN", { hour: "numeric", minute: "2-digit" })}
+                  </span>
+                )}
               </div>
               <h1 className="mt-2 text-2xl font-bold tracking-tight text-white sm:text-3xl">
                 {exam.title}
@@ -1176,6 +1299,21 @@ function AttemptExam() {
             >
               Cancel
             </button>
+          </div>
+
+          {/* Timing & Late Start Warning Banner */}
+          <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-slate-800 bg-slate-900/60 p-3.5 text-xs text-slate-300">
+            <div className="flex items-center gap-2 text-emerald-400 font-medium">
+              <Timer size={16} />
+              <span>
+                Your Available Attempt Time: <b>{formatTimer(timeLeft)}</b>
+              </span>
+            </div>
+            {exam.endTime && (
+              <span className="text-[11px] text-slate-400">
+                Exam window closes promptly at {new Date(exam.endTime).toLocaleTimeString("en-IN", { hour: "numeric", minute: "2-digit" })}
+              </span>
+            )}
           </div>
 
           {error && (

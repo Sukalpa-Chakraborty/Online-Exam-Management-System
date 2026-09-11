@@ -13,6 +13,7 @@ import {
   Send,
   ShieldAlert,
   Trash2,
+  Timer,
 } from "lucide-react";
 
 import {
@@ -29,6 +30,9 @@ import { useAuth } from "../../context/AuthContext";
 import { db } from "../../firebase/firebase";
 import { deleteExamSafely, duplicateExam, getExamAttemptCount } from "../../services/examService";
 import { notifyStudentsOfPublishedExam } from "../../services/notificationService";
+import {
+  getExamScheduleDetails,
+} from "../../services/serverTimeService";
 
 interface Exam {
   id: string;
@@ -52,6 +56,15 @@ function MyExams() {
   const [exams, setExams] = useState<Exam[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [, setClockTicker] = useState(0);
+
+  // Live 1-second ticker to keep schedule statuses up to date
+  useEffect(() => {
+    const timer = window.setInterval(() => {
+      setClockTicker((t) => t + 1);
+    }, 1000);
+    return () => window.clearInterval(timer);
+  }, []);
 
   const [deletingId, setDeletingId] = useState("");
   const [publishingId, setPublishingId] = useState("");
@@ -363,26 +376,43 @@ function MyExams() {
               const questionCount =
                 exam.questionCount ?? exam.totalQuestions ?? 0;
               const isPublished = exam.status === "published";
+              const schedule = isPublished
+                ? getExamScheduleDetails(
+                    exam.startTime,
+                    exam.duration || 30,
+                    exam.endTime
+                  )
+                : null;
 
               return (
                 <div
                   key={exam.id}
-                  className="app-card flex flex-col justify-between rounded-3xl border border-slate-200/80 bg-white p-6 shadow-xs transition"
+                  className="app-card flex flex-col justify-between rounded-3xl border border-slate-200/80 bg-white p-6 shadow-xs transition hover:border-slate-300"
                 >
                   <div>
                     {/* Header Specs */}
                     <div className="flex items-start justify-between gap-3">
                       <div>
-                        <div className="flex items-center gap-2">
-                          <span
-                            className={`rounded-full px-2.5 py-0.5 text-[11px] font-bold ${
-                              isPublished
-                                ? "bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200"
-                                : "bg-amber-50 text-amber-700 ring-1 ring-amber-200"
-                            }`}
-                          >
-                            {isPublished ? "Published" : "Draft"}
-                          </span>
+                        <div className="flex flex-wrap items-center gap-2">
+                          {!isPublished ? (
+                            <span className="rounded-full bg-amber-50 px-2.5 py-0.5 text-[11px] font-bold text-amber-700 ring-1 ring-amber-200">
+                              Draft
+                            </span>
+                          ) : schedule?.status === "live" ? (
+                            <span className="flex items-center gap-1.5 rounded-full bg-emerald-50 px-2.5 py-0.5 text-[11px] font-bold text-emerald-700 ring-1 ring-emerald-300 animate-pulse">
+                              <span className="h-2 w-2 rounded-full bg-emerald-500" />
+                              <span>Live Now</span>
+                            </span>
+                          ) : schedule?.status === "scheduled" ? (
+                            <span className="flex items-center gap-1 rounded-full bg-blue-50 px-2.5 py-0.5 text-[11px] font-bold text-blue-700 ring-1 ring-blue-200">
+                              <Timer size={12} className="text-blue-500" />
+                              <span>Scheduled</span>
+                            </span>
+                          ) : (
+                            <span className="rounded-full bg-slate-100 px-2.5 py-0.5 text-[11px] font-bold text-slate-600 ring-1 ring-slate-200">
+                              Completed
+                            </span>
+                          )}
 
                           <span className="rounded-md bg-slate-100 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-slate-600">
                             {exam.subject || "General"}
@@ -425,14 +455,22 @@ function MyExams() {
                       </div>
                     </div>
 
-                    <div className="mt-3 flex items-center gap-2 text-xs text-slate-500">
-                      <CalendarDays size={14} className="text-slate-400" />
-                      <span>{formatDate(exam.startTime)}</span>
-                      {exam.startTime && (
-                        <>
-                          <span>•</span>
-                          <span>{formatTime(exam.startTime)}</span>
-                        </>
+                    <div className="mt-3 space-y-1.5 text-xs text-slate-500">
+                      <div className="flex items-center gap-2">
+                        <CalendarDays size={14} className="text-slate-400 shrink-0" />
+                        <span>
+                          <b>Starts:</b> {formatDate(exam.startTime)}{" "}
+                          {exam.startTime && `• ${formatTime(exam.startTime)}`}
+                        </span>
+                      </div>
+                      {exam.endTime && (
+                        <div className="flex items-center gap-2">
+                          <Clock3 size={14} className="text-slate-400 shrink-0" />
+                          <span>
+                            <b>Ends:</b> {formatDate(exam.endTime)} •{" "}
+                            {formatTime(exam.endTime)}
+                          </span>
+                        </div>
                       )}
                     </div>
                   </div>

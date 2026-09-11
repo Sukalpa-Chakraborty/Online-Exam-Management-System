@@ -9,6 +9,10 @@ import {
 import { Loader2 } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 
+/* ================= LANDING ================= */
+
+import LandingPage from "../pages/landing/LandingPage";
+
 /* ================= AUTH ================= */
 
 import Login from "../pages/auth/Login";
@@ -196,16 +200,11 @@ function RoleDashboard() {
 function AppRoutes() {
   return (
     <Routes>
-      {/* DEFAULT */}
+      {/* DEFAULT LANDING */}
 
       <Route
         path="/"
-        element={
-          <Navigate
-            to="/login"
-            replace
-          />
-        }
+        element={<LandingPage />}
       />
 
       {/* AUTH */}

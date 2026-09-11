@@ -15,6 +15,7 @@ import {
   FileText,
   Loader2,
   Save,
+  Sparkles,
 } from "lucide-react";
 
 import { DateTimePicker } from "../../components/common/DateTimePicker";
@@ -26,6 +27,10 @@ import {
   updateExam,
 } from "../../services/examService";
 import { getTeacherClasses, type ClassBatch } from "../../services/classService";
+import {
+  calculateExamEndTime,
+  getExamScheduleDetails,
+} from "../../services/serverTimeService";
 
 function EditExam() {
   const navigate = useNavigate();
@@ -39,7 +44,7 @@ function EditExam() {
   const [title, setTitle] = useState("");
   const [subject, setSubject] = useState("");
   const [description, setDescription] = useState("");
-  const [duration, setDuration] = useState(60);
+  const [duration, setDuration] = useState(10);
   const [startTime, setStartTime] = useState("");
   const [endTime, setEndTime] = useState("");
   const [classes, setClasses] = useState<ClassBatch[]>([]);
@@ -82,12 +87,20 @@ function EditExam() {
           return;
         }
 
+        const dur = Number(exam.duration) || 10;
         setTitle(exam.title || "");
         setSubject(exam.subject || "");
         setDescription(exam.description || "");
-        setDuration(Number(exam.duration) || 60);
+        setDuration(dur);
         setStartTime(exam.startTime || "");
-        setEndTime(exam.endTime || "");
+
+        // If endTime is missing on legacy records, calculate automatically
+        if (exam.endTime) {
+          setEndTime(exam.endTime);
+        } else if (exam.startTime) {
+          setEndTime(calculateExamEndTime(exam.startTime, dur));
+        }
+
         setClassId(exam.classIds?.[0] || "");
         setOriginalClassId(exam.classIds?.[0] || "");
         setHasAttempts((await getExamAttemptCount(examId)) > 0);
@@ -103,6 +116,38 @@ function EditExam() {
     loadExam();
   }, [examId, user]);
 
+  // Handle Start Time Change & Auto-Calculate End Time
+  const handleStartTimeChange = (newStartTime: string) => {
+    setStartTime(newStartTime);
+    if (newStartTime && duration > 0) {
+      const computedEnd = calculateExamEndTime(newStartTime, duration);
+      setEndTime(computedEnd);
+    }
+  };
+
+  // Handle Duration Change & Auto-Update End Time
+  const handleDurationChange = (newDuration: number) => {
+    const safeDuration = Math.max(1, newDuration);
+    setDuration(safeDuration);
+    if (startTime) {
+      const computedEnd = calculateExamEndTime(startTime, safeDuration);
+      setEndTime(computedEnd);
+    }
+  };
+
+  const scheduleInfo = getExamScheduleDetails({
+    startTime,
+    endTime,
+    duration,
+    status: "published",
+  });
+
+  const isScheduleValid =
+    Boolean(startTime) &&
+    Boolean(endTime) &&
+    duration >= 1 &&
+    new Date(endTime).getTime() > new Date(startTime).getTime();
+
   const validateForm = () => {
     if (!title.trim()) {
       setError("Please enter an exam title.");
@@ -114,18 +159,18 @@ function EditExam() {
       return false;
     }
 
-    if (!startTime || !endTime) {
-      setError("Please select the start and end date and time.");
-      return false;
-    }
-
-    if (new Date(endTime) <= new Date(startTime)) {
-      setError("End time must be after the start time.");
+    if (!startTime) {
+      setError("Please select the exam start date and time.");
       return false;
     }
 
     if (!duration || Number(duration) < 1) {
       setError("Duration must be at least 1 minute.");
+      return false;
+    }
+
+    if (!endTime || new Date(endTime) <= new Date(startTime)) {
+      setError("Exam end time must be after the start time.");
       return false;
     }
 
@@ -219,26 +264,26 @@ function EditExam() {
         <button
           type="button"
           onClick={() => navigate("/teacher/exams")}
-          className="inline-flex items-center gap-2 text-xs font-semibold text-slate-500 transition hover:text-blue-600"
+          className="inline-flex items-center gap-2 text-xs font-semibold text-slate-500 transition hover:text-blue-600 cursor-pointer"
         >
           <ArrowLeft size={16} />
           <span>Back to My Exams</span>
         </button>
 
-        <div className="overflow-hidden rounded-3xl border border-slate-200/80 bg-white shadow-xs">
+        <div className="overflow-hidden rounded-3xl border border-slate-200/80 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-xs">
           {/* Header */}
-          <div className="border-b border-slate-100 p-6 md:p-8">
+          <div className="border-b border-slate-100 dark:border-slate-800 p-6 md:p-8">
             <div className="flex items-start gap-4">
-              <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-blue-50 text-blue-600">
+              <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400">
                 <FileText size={22} />
               </div>
 
               <div>
-                <h1 className="text-lg font-bold text-slate-900 md:text-xl">
+                <h1 className="text-lg font-bold text-slate-900 dark:text-white md:text-xl">
                   Edit Exam Settings
                 </h1>
-                <p className="mt-0.5 text-xs text-slate-500">
-                  Update title, duration, schedule, and class assignments.
+                <p className="mt-0.5 text-xs text-slate-500 dark:text-slate-400">
+                  Update title, duration, schedule window, and class assignments.
                 </p>
               </div>
             </div>
@@ -267,7 +312,7 @@ function EditExam() {
             <div className="grid gap-5 md:grid-cols-2">
               {/* Title */}
               <div className="md:col-span-2">
-                <label className="mb-1.5 block text-xs font-semibold text-slate-700">
+                <label className="mb-1.5 block text-xs font-semibold text-slate-700 dark:text-slate-300">
                   Exam Title
                 </label>
                 <input
@@ -275,7 +320,7 @@ function EditExam() {
                   value={title}
                   onChange={(event) => setTitle(event.target.value)}
                   placeholder="Enter exam title"
-                  className="w-full rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm text-slate-800 outline-none transition focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10"
+                  className="w-full rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 px-4 py-2.5 text-xs text-slate-800 dark:text-white outline-none transition focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10"
                 />
               </div>
 
@@ -294,37 +339,38 @@ function EditExam() {
               </div>
 
               {/* Schedule & Duration Group */}
-              <div className="md:col-span-2 rounded-2xl border border-slate-200/80 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/30 p-4 sm:p-5">
-                <div className="mb-3.5">
-                  <h3 className="text-xs font-bold text-slate-800 dark:text-slate-200 uppercase tracking-wider">
-                    Schedule & Duration
-                  </h3>
-                  <p className="mt-0.5 text-[11px] text-slate-500 dark:text-slate-400">
+              <div className="md:col-span-2 rounded-2xl border border-slate-200/80 dark:border-slate-800 bg-slate-50/70 dark:bg-slate-950/40 p-5 space-y-4">
+                <div>
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <Clock size={16} className="text-blue-600 dark:text-blue-400" />
+                      <h3 className="text-xs font-bold text-slate-900 dark:text-white uppercase tracking-wider">
+                        Schedule & Duration
+                      </h3>
+                    </div>
+                    <span className="rounded-full bg-blue-100 dark:bg-blue-900/40 px-2.5 py-0.5 text-[10px] font-bold text-blue-700 dark:text-blue-300">
+                      Authoritative Window
+                    </span>
+                  </div>
+                  <p className="mt-1 text-[11px] text-slate-500 dark:text-slate-400">
                     Modify the availability window and duration limit for this examination.
                   </p>
                 </div>
 
-                <div className="grid gap-4 sm:grid-cols-3">
+                <div className="grid gap-4 sm:grid-cols-2">
                   {/* Start Date & Time */}
                   <DateTimePicker
-                    label="Start Date & Time"
+                    label="Exam Start Date & Time"
                     value={startTime}
-                    onChange={(val) => setStartTime(val)}
+                    onChange={handleStartTimeChange}
+                    required
                     placeholder="Choose start date & time"
                   />
 
-                  {/* End Date & Time */}
-                  <DateTimePicker
-                    label="End Date & Time"
-                    value={endTime}
-                    onChange={(val) => setEndTime(val)}
-                    placeholder="Choose end date & time"
-                  />
-
-                  {/* Time Limit */}
+                  {/* Duration Input */}
                   <div>
                     <label className="mb-1.5 block text-xs font-semibold text-slate-700 dark:text-slate-300">
-                      Time Limit <span className="text-red-500">*</span>
+                      Exam Duration <span className="text-red-500">*</span>
                     </label>
                     <div className="relative flex items-center">
                       <div className="pointer-events-none absolute left-3.5 flex items-center text-blue-600 dark:text-blue-400">
@@ -336,10 +382,10 @@ function EditExam() {
                         max="1440"
                         value={duration || ""}
                         onChange={(event) =>
-                          setDuration(Math.max(1, Number(event.target.value)))
+                          handleDurationChange(Number(event.target.value))
                         }
-                        placeholder="60"
-                        className="w-full rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 py-2.5 pl-10 pr-16 text-xs font-semibold text-slate-800 dark:text-white outline-none transition focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10"
+                        placeholder="10"
+                        className="w-full rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 py-2.5 pl-10 pr-20 text-xs font-bold text-slate-800 dark:text-white outline-none transition focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10"
                       />
                       <span className="pointer-events-none absolute right-3.5 text-xs font-bold text-slate-400">
                         Minutes
@@ -348,11 +394,37 @@ function EditExam() {
                   </div>
                 </div>
 
-                {/* Inline Schedule Validation Alert */}
-                {startTime && endTime && new Date(endTime) <= new Date(startTime) && (
-                  <p className="mt-3 flex items-center gap-1.5 rounded-lg bg-red-50 dark:bg-red-950/40 p-2.5 text-xs font-semibold text-red-600 dark:text-red-400">
-                    <span>⚠️ End Date & Time must be later than Start Date & Time.</span>
-                  </p>
+                {/* Calculated Live Schedule Summary Box */}
+                {startTime && isScheduleValid && (
+                  <div className="rounded-2xl border border-blue-200/80 dark:border-blue-900/60 bg-blue-50/80 dark:bg-blue-950/40 p-4">
+                    <div className="flex items-center gap-2 text-xs font-bold text-blue-900 dark:text-blue-200">
+                      <Sparkles size={14} className="text-blue-600 dark:text-blue-400" />
+                      <span>Updated Examination Window</span>
+                    </div>
+
+                    <div className="mt-3 grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
+                      <div className="bg-white dark:bg-slate-900 p-2.5 rounded-xl border border-blue-100 dark:border-blue-900/40">
+                        <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Starts</span>
+                        <p className="font-bold text-slate-900 dark:text-white mt-0.5">
+                          {scheduleInfo.formattedStartTime}
+                        </p>
+                      </div>
+
+                      <div className="bg-white dark:bg-slate-900 p-2.5 rounded-xl border border-blue-100 dark:border-blue-900/40">
+                        <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Duration</span>
+                        <p className="font-bold text-blue-600 dark:text-blue-400 mt-0.5">
+                          {duration} Minutes
+                        </p>
+                      </div>
+
+                      <div className="bg-white dark:bg-slate-900 p-2.5 rounded-xl border border-blue-100 dark:border-blue-900/40">
+                        <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Ends Automatically</span>
+                        <p className="font-bold text-slate-900 dark:text-white mt-0.5">
+                          {scheduleInfo.formattedEndTime}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
                 )}
               </div>
 
@@ -367,7 +439,7 @@ function EditExam() {
                   onChange={(event) => setClassId(event.target.value)}
                   className="w-full rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 px-4 py-2.5 text-xs text-slate-800 dark:text-white outline-none transition focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 disabled:bg-slate-100 dark:disabled:bg-slate-800 disabled:cursor-not-allowed"
                 >
-                  <option value="">No class assignment (Public to all students)</option>
+                  <option value="">No class restriction (Public to all registered students)</option>
                   {classes.map((item) => (
                     <option key={item.id} value={item.id}>
                       {item.name} ({item.code})
@@ -391,12 +463,12 @@ function EditExam() {
               </div>
             </div>
 
-            <div className="mt-8 flex flex-col-reverse justify-end gap-3 border-t border-slate-100 pt-6 sm:flex-row sm:items-center">
+            <div className="mt-8 flex flex-col-reverse justify-end gap-3 border-t border-slate-100 dark:border-slate-800 pt-6 sm:flex-row sm:items-center">
               <button
                 type="button"
                 disabled={saving}
                 onClick={() => navigate("/teacher/exams")}
-                className="rounded-xl border border-slate-200 px-5 py-2.5 text-xs font-semibold text-slate-700 transition hover:bg-slate-50 disabled:opacity-60"
+                className="rounded-xl border border-slate-200 dark:border-slate-800 px-5 py-2.5 text-xs font-semibold text-slate-700 dark:text-slate-300 transition hover:bg-slate-50 dark:hover:bg-slate-800 disabled:opacity-60 cursor-pointer"
               >
                 Cancel
               </button>
@@ -404,7 +476,7 @@ function EditExam() {
               <button
                 type="submit"
                 disabled={saving}
-                className="inline-flex items-center justify-center gap-1.5 rounded-xl bg-gradient-to-r from-blue-600 to-blue-700 px-6 py-2.5 text-xs font-bold text-white shadow-md shadow-blue-600/20 transition hover:from-blue-700 hover:to-blue-800 disabled:opacity-60"
+                className="inline-flex items-center justify-center gap-1.5 rounded-xl bg-gradient-to-r from-blue-600 to-blue-700 px-6 py-2.5 text-xs font-bold text-white shadow-md shadow-blue-600/20 transition hover:from-blue-700 hover:to-blue-800 disabled:opacity-60 cursor-pointer"
               >
                 {saving ? (
                   <>

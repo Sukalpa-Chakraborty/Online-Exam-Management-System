@@ -9,6 +9,7 @@ import {
   FileQuestion,
   Loader2,
   Sparkles,
+  Timer,
 } from "lucide-react";
 
 import {
@@ -22,6 +23,10 @@ import DashboardLayout from "../../components/layout/DashboardLayout";
 import { useAuth } from "../../context/AuthContext";
 import { db } from "../../firebase/firebase";
 import { getStudentClasses } from "../../services/classService";
+import {
+  formatCountdown,
+  getExamScheduleDetails,
+} from "../../services/serverTimeService";
 
 interface Exam {
   id: string;
@@ -45,6 +50,15 @@ function AvailableExams() {
   const [exams, setExams] = useState<Exam[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [, setClockTicker] = useState(0);
+
+  // Live 1-second ticker to update live/upcoming statuses automatically
+  useEffect(() => {
+    const timer = window.setInterval(() => {
+      setClockTicker((t) => t + 1);
+    }, 1000);
+    return () => window.clearInterval(timer);
+  }, []);
 
   useEffect(() => {
     const fetchAvailableExams = async () => {
@@ -118,7 +132,7 @@ function AvailableExams() {
     fetchAvailableExams();
   }, [user]);
 
-  const formatDateTime = (dateTime: string) => {
+  const formatDateTime = (dateTime?: string) => {
     if (!dateTime) return "Not scheduled";
     const date = new Date(dateTime);
     if (Number.isNaN(date.getTime())) return dateTime;
@@ -133,18 +147,6 @@ function AvailableExams() {
 
   const getQuestionCount = (exam: Exam) => {
     return exam.questionCount || exam.totalQuestions || 0;
-  };
-
-  const isExamStarted = (exam: Exam) => {
-    if (!exam.startTime) return true;
-    const startTime = new Date(exam.startTime);
-    return new Date() >= startTime;
-  };
-
-  const isExamEnded = (exam: Exam) => {
-    if (!exam.endTime) return false;
-    const endTime = new Date(exam.endTime);
-    return new Date() > endTime;
   };
 
   return (
@@ -223,33 +225,46 @@ function AvailableExams() {
         {!loading && !error && exams.length > 0 && (
           <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
             {exams.map((exam) => {
-              const started = isExamStarted(exam);
-              const ended = isExamEnded(exam);
-              const canStart = started && !ended;
+              const schedule = getExamScheduleDetails(
+                exam.startTime,
+                exam.duration,
+                exam.endTime
+              );
+              const isLive = schedule.status === "live";
+              const isScheduled = schedule.status === "scheduled";
+              const isClosed = schedule.status === "completed";
 
               return (
                 <div
                   key={exam.id}
-                  className="app-card flex flex-col justify-between rounded-3xl border border-slate-200/80 bg-white p-6 shadow-xs transition"
+                  className="app-card flex flex-col justify-between rounded-3xl border border-slate-200/80 bg-white p-6 shadow-xs transition hover:border-slate-300"
                 >
                   <div>
                     {/* Top Subject & Status Badge */}
-                    <div className="mb-4 flex items-center justify-between gap-3">
+                    <div className="mb-4 flex items-center justify-between gap-2">
                       <span className="rounded-md bg-blue-50 px-2.5 py-1 text-[11px] font-bold uppercase tracking-wider text-blue-700">
                         {exam.subject || "General"}
                       </span>
 
-                      <span
-                        className={`rounded-full px-2.5 py-0.5 text-[11px] font-bold ${
-                          ended
-                            ? "bg-red-50 text-red-700 ring-1 ring-red-200"
-                            : started
-                            ? "bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200"
-                            : "bg-amber-50 text-amber-800 ring-1 ring-amber-200"
-                        }`}
-                      >
-                        {ended ? "Ended" : started ? "Available" : "Upcoming"}
-                      </span>
+                      {isLive && (
+                        <span className="flex items-center gap-1.5 rounded-full bg-emerald-50 px-3 py-1 text-[11px] font-bold text-emerald-700 ring-1 ring-emerald-300 animate-pulse">
+                          <span className="h-2 w-2 rounded-full bg-emerald-500" />
+                          <span>Live Now</span>
+                        </span>
+                      )}
+
+                      {isScheduled && (
+                        <span className="flex items-center gap-1.5 rounded-full bg-blue-50 px-3 py-1 text-[11px] font-bold text-blue-700 ring-1 ring-blue-200">
+                          <Timer size={12} className="text-blue-500" />
+                          <span>Starts in {formatCountdown(schedule.secondsUntilStart)}</span>
+                        </span>
+                      )}
+
+                      {isClosed && (
+                        <span className="rounded-full bg-slate-100 px-2.5 py-0.5 text-[11px] font-bold text-slate-500 ring-1 ring-slate-200">
+                          Window Closed
+                        </span>
+                      )}
                     </div>
 
                     <h2 className="text-base font-bold text-slate-900 line-clamp-1">
@@ -265,43 +280,66 @@ function AvailableExams() {
                     {/* Metadata Specs */}
                     <div className="mt-5 space-y-2.5 border-t border-slate-100 pt-4">
                       <div className="flex items-center gap-2.5 text-xs text-slate-600">
-                        <CalendarDays size={15} className="text-slate-400" />
-                        <span>{formatDateTime(exam.startTime)}</span>
+                        <CalendarDays size={15} className="text-slate-400 shrink-0" />
+                        <span className="truncate">
+                          Starts: <b>{formatDateTime(exam.startTime)}</b>
+                        </span>
+                      </div>
+
+                      {exam.endTime && (
+                        <div className="flex items-center gap-2.5 text-xs text-slate-600">
+                          <Clock3 size={15} className="text-slate-400 shrink-0" />
+                          <span className="truncate">
+                            Ends: <b>{formatDateTime(exam.endTime)}</b>
+                          </span>
+                        </div>
+                      )}
+
+                      <div className="flex items-center gap-2.5 text-xs text-slate-600">
+                        <Clock3 size={15} className="text-slate-400 shrink-0" />
+                        <span>
+                          Duration: <b>{exam.duration || 0} minutes</b>
+                        </span>
                       </div>
 
                       <div className="flex items-center gap-2.5 text-xs text-slate-600">
-                        <Clock3 size={15} className="text-slate-400" />
-                        <span>{exam.duration || 0} minutes duration</span>
-                      </div>
-
-                      <div className="flex items-center gap-2.5 text-xs text-slate-600">
-                        <FileQuestion size={15} className="text-slate-400" />
-                        <span>{getQuestionCount(exam)} questions</span>
+                        <FileQuestion size={15} className="text-slate-400 shrink-0" />
+                        <span>
+                          <b>{getQuestionCount(exam)}</b> questions
+                        </span>
                       </div>
                     </div>
                   </div>
 
                   {/* Start Exam CTA */}
                   <div className="mt-6 pt-2">
-                    <button
-                      type="button"
-                      disabled={!canStart}
-                      onClick={() => navigate(`/student/exams/${exam.id}`)}
-                      className={`flex w-full items-center justify-center gap-2 rounded-xl py-2.5 text-xs font-bold transition ${
-                        canStart
-                          ? "bg-gradient-to-r from-blue-600 to-blue-700 text-white shadow-md shadow-blue-600/20 hover:from-blue-700 hover:to-blue-800"
-                          : "cursor-not-allowed bg-slate-100 text-slate-400"
-                      }`}
-                    >
-                      <span>
-                        {ended
-                          ? "Exam Ended"
-                          : !started
-                          ? "Not Started Yet"
-                          : "View Exam"}
-                      </span>
-                      {canStart && <ArrowRight size={15} />}
-                    </button>
+                    {isClosed ? (
+                      <button
+                        type="button"
+                        disabled
+                        className="flex w-full items-center justify-center gap-2 rounded-xl bg-slate-100 py-2.5 text-xs font-bold text-slate-400 cursor-not-allowed"
+                      >
+                        <span>Exam Window Closed</span>
+                      </button>
+                    ) : isLive ? (
+                      <button
+                        type="button"
+                        onClick={() => navigate(`/student/exams/${exam.id}`)}
+                        className="flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 py-2.5 text-xs font-bold text-white shadow-md shadow-emerald-600/20 transition hover:from-emerald-700 hover:to-teal-700 active:scale-98 cursor-pointer"
+                      >
+                        <span>Start / Attempt Exam</span>
+                        <ArrowRight size={15} />
+                      </button>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => navigate(`/student/exams/${exam.id}`)}
+                        className="flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 py-2.5 text-xs font-bold text-white shadow-md shadow-blue-600/20 transition hover:from-blue-700 hover:to-indigo-700 active:scale-98 cursor-pointer"
+                      >
+                        <span>View Guidelines & Schedule</span>
+                        <ArrowRight size={15} />
+                      </button>
+                    )}
                   </div>
                 </div>
               );
