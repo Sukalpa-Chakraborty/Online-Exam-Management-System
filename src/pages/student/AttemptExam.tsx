@@ -1006,11 +1006,22 @@ function AttemptExam() {
         }
 
         // MCQ / TRUE FALSE
-        const isCorrect =
-          selectedAnswer.toLowerCase() ===
-          String(question.correctAnswer || "")
+        // Older questions and question-bank imports may store the correct
+        // answer as a labeled value (for example, "A. True"). Students
+        // submit the value itself ("True"), so compare the normalized value.
+        const normalizeAnswer = (value: string) =>
+          value
             .trim()
-            .toLowerCase();
+            .replace(/^[A-D]\s*[.)\-:]\s*/i, "")
+            .toLocaleLowerCase();
+        const expectedAnswer = String(question.correctAnswer || "");
+        const isCorrect =
+          normalizeAnswer(selectedAnswer) === normalizeAnswer(expectedAnswer) ||
+          (question.type === "true_false" &&
+            ((/^a$/i.test(expectedAnswer.trim()) &&
+              normalizeAnswer(selectedAnswer) === "true") ||
+              (/^b$/i.test(expectedAnswer.trim()) &&
+                normalizeAnswer(selectedAnswer) === "false")));
 
         if (!selectedAnswer) {
           unanswered++;
